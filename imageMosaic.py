@@ -14,6 +14,7 @@ Version: 1.0.0
 
 import os
 from shutil import copyfile
+import math
 
 # from re import _expand
 
@@ -39,26 +40,26 @@ LINE_FEED = '\n'
 
 
 # process all annotated images
-def processAnnotatedImages(annotatedImagesPath, croppedImagesPath, sizeSquareImage):
+def processInputImages(inputImagesPath, mosaicImagesPath, sizeSquareImage):
     # defining counters
     totalOfImages = 0
-    totalOfBoundingBoxes = 0
-    totalOfExuviaBoundingBoxesImages = 0
-    totalOfInstar1BoundingBoxesImages = 0
-    totalOfInstar2BoundingBoxesImages = 0
-    totalOfInstar3BoundingBoxesImages = 0
-    totalOfInstar4BoundingBoxesImages = 0
-    totalOfAdultaBoundingBoxesImages = 0
-    totalOfOvoBoundingBoxesImages = 0
-    totalOfInstar1ou2BoundingBoxesImages = 0
-    totalOfInstar3ou4BoundingBoxesImages = 0
+    # totalOfBoundingBoxes = 0
+    # totalOfExuviaBoundingBoxesImages = 0
+    # totalOfInstar1BoundingBoxesImages = 0
+    # totalOfInstar2BoundingBoxesImages = 0
+    # totalOfInstar3BoundingBoxesImages = 0
+    # totalOfInstar4BoundingBoxesImages = 0
+    # totalOfAdultaBoundingBoxesImages = 0
+    # totalOfOvoBoundingBoxesImages = 0
+    # totalOfInstar1ou2BoundingBoxesImages = 0
+    # totalOfInstar3ou4BoundingBoxesImages = 0
+    #
+    # numberOfInstar1 = 0
+    # numberOfInstar2 = 0
+    # numberOfInstar3 = 0
+    # numberOfInstar4 = 0
 
-    numberOfInstar1 = 0
-    numberOfInstar2 = 0
-    numberOfInstar3 = 0
-    numberOfInstar4 = 0
-
-    for fileName in os.listdir(annotatedImagesPath):
+    for fileName in os.listdir(inputImagesPath):
 
         # check if file is an image or not
         if fileName.lower().find('jpg') == -1 and fileName.lower().find('jpeg') == -1:
@@ -72,7 +73,7 @@ def processAnnotatedImages(annotatedImagesPath, croppedImagesPath, sizeSquareIma
         if jpegPosition == -1: jpegPosition = fileName.find('JPEG')
 
         # get only image name
-        imageName = fileName[:jpegPosition - 1]
+        inputImageName = fileName[:jpegPosition - 1]
 
         # adding image counter
         totalOfImages += 1
@@ -80,158 +81,35 @@ def processAnnotatedImages(annotatedImagesPath, croppedImagesPath, sizeSquareIma
         # reading image
         print('')
         print('Reading image:', fileName)
-        annotatedImage = cv2.imread(annotatedImagesPath + fileName)
-        if annotatedImage is not None:
+        inputImage = cv2.imread(inputImagesPath + fileName)
+        if inputImage is not None:
             # creating new file
-            id = imageName[1:]
-            annotatedImageHeight, annotatedImageWidth, annotatedImageChannel = annotatedImage.shape
+            id = inputImageName[1:]
+            imageHeight, imageWidth, imageChannel = inputImage.shape
             print(
-                'Image: ' + imageName + "  shape: " + " height:" + str(annotatedImageHeight) + " width:" + str(
-                    annotatedImageWidth))
+                'Image: ' + inputImageName + "  shape: " + " height:" + str(imageHeight) + " width:" + str(
+                    imageWidth))
 
-        # open file of image annotations
-        imageAnnotationsFile = open(annotatedImagesPath + imageName + ".txt", "r")
+        # create the mosaic of images
+        cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, mosaicImagesPath)
 
-        # reading next line
-        line = imageAnnotationsFile.readline()
-
-        # defining id of bounding box
-        idBoundingBox = 0
-
-        # processing the file of ground truth data
-        counter = 0
-        while line != '':
-            # increment counter
-            counter += 1
-
-            # getting the array of values
-            values = line.split(' ')
-            # print(values)
-
-            idBoundingBox += 1
-            imageWidth = 0
-            imageHeight = 0
-            idClass = int(values[0])
-            colOfCentrePoint = float(values[1])
-            linOfCentrePoint = float(values[2])
-            heightOfCentrePoint = float(values[3])
-            widthOfCentrePoint = float(values[4])
-
-            # creating a new bounding box instance
-            annotatedBoundingBox = BoundingBox(0, 0, 0, 0, '')
-            annotatedBoundingBox.setYoloAnnotation(annotatedImageHeight, annotatedImageWidth, colOfCentrePoint,
-                                                   linOfCentrePoint, widthOfCentrePoint, heightOfCentrePoint,
-                                                   idBoundingBox,
-                                                   idClass)
-
-            # counting number of instars
-            if annotatedBoundingBox.className == 'instar1':
-                numberOfInstar1 += 1
-            if annotatedBoundingBox.className == 'instar2':
-                numberOfInstar2 += 1
-            if annotatedBoundingBox.className == 'instar3':
-                numberOfInstar3 += 1
-            if annotatedBoundingBox.className == 'instar4':
-                numberOfInstar4 += 1
-
-            # merging classes
-            if (annotatedBoundingBox.className == 'instar1' or annotatedBoundingBox.className == 'instar2'):
-                if numberOfInstar1 > 65 or numberOfInstar2 > 65:
-                    # reading next line
-                    line = imageAnnotationsFile.readline()
-                    continue
-                annotatedBoundingBox.className = 'instar1ou2'
-
-            if (annotatedBoundingBox.className == 'instar3' or annotatedBoundingBox.className == 'instar4'):
-                if numberOfInstar3 > 65 or numberOfInstar4 > 65:
-                    # reading next line
-                    line = imageAnnotationsFile.readline()
-                    continue
-                annotatedBoundingBox.className = 'instar3ou4'
-
-            print(imageName,
-                  'bb', idBoundingBox,
-                  'height', (annotatedBoundingBox.linPoint2 - annotatedBoundingBox.linPoint1),
-                  'width', (annotatedBoundingBox.colPoint2 - annotatedBoundingBox.colPoint1))
-
-            # cropping bounding box
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'center')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'north')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'south')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'east')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'west')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'northeast')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'northwest')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'southeast')
-            cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage, croppedImagesPath, imageName,
-                            annotatedBoundingBox.className, str(idBoundingBox),
-                            'southwest')
-
-            # copying  classes name file
-            copyClassesFile(annotatedImagesPath, croppedImagesPath, annotatedBoundingBox.className)
-
-            # counting total bounding boxes
-            totalOfBoundingBoxes += 1
-
-            # counting bounding boxes
-            if annotatedBoundingBox.className == 'exuvia':
-                totalOfExuviaBoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'instar1':
-                totalOfInstar1BoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'instar2':
-                totalOfInstar2BoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'instar3':
-                totalOfInstar3BoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'instar4':
-                totalOfInstar4BoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'adulta':
-                totalOfAdultaBoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'ovo':
-                totalOfOvoBoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'instar1ou2':
-                totalOfInstar1ou2BoundingBoxesImages += 1
-            elif annotatedBoundingBox.className == 'instar3ou4':
-                totalOfInstar3ou4BoundingBoxesImages += 1
-
-            # -----------------
-            # reading next line
-            # -----------------
-            line = imageAnnotationsFile.readline()
-
-        # close file
-        imageAnnotationsFile.close()
+        # # open file of image annotations
+        # imageAnnotationsFile = open(inputImagesPath + imageName + ".txt", "r")
+        #
+        # # reading next line
+        # line = imageAnnotationsFile.readline()
+        #
+        # # defining id of bounding box
+        # idBoundingBox = 0
+        #
+        # # close file
+        # imageAnnotationsFile.close()
 
     # printing statistics
     print('')
     print('Estatísticas do Processamento:')
     print('------------------------------')
-    print('Total de imagens                 : ', totalOfImages)
-    print('Total de bounding boxes          : ', totalOfBoundingBoxes)
-    print('Total de imagens de exuvia       : ', totalOfExuviaBoundingBoxesImages)
-    print('Total de imagens de instar1      : ', totalOfInstar1BoundingBoxesImages)
-    print('Total de imagens de instar2      : ', totalOfInstar2BoundingBoxesImages)
-    print('Total de imagens de instar3      : ', totalOfInstar3BoundingBoxesImages)
-    print('Total de imagens de instar4      : ', totalOfInstar4BoundingBoxesImages)
-    print('Total de imagens de adultas      : ', totalOfAdultaBoundingBoxesImages)
-    print('Total de imagens de ovo          : ', totalOfOvoBoundingBoxesImages)
-    print('Total de imagens de instar1 ou 2 : ', totalOfInstar1ou2BoundingBoxesImages)
-    print('Total de imagens de instar3 ou 4 : ', totalOfInstar3ou4BoundingBoxesImages)
+    print('Total de imagens             : ', totalOfImages)
 
     print('Máximo Height                : ', sizeSquareImage)
     print('Máximo Width                 : ', sizeSquareImage)
@@ -243,45 +121,65 @@ def processAnnotatedImages(annotatedImagesPath, croppedImagesPath, sizeSquareIma
 # ###########################################
 
 
-# copy classes file
-def copyClassesFile(annotatedImagesPath, croppedImagesPath, className):
-    croppedImagesPathAndClassFile = croppedImagesPath + className + "/" + "classes.txt"
-    if not os.path.isfile(croppedImagesPathAndClassFile):
-        copyfile(annotatedImagesPath + 'classes.txt', croppedImagesPathAndClassFile)
-
-
 # crops the bounding box image
-def cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage,
-                    croppedImagesPath, imageName, className, idBoundingBox, objectPosition):
-    # creating the specific folder
-    createDirectory(croppedImagesPath, className)
+def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, mosaicImagesPath):
+    # get image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # calculating number of mosaic
+    numberOfMosaicLines = math.ceil(imageHeight / sizeSquareImage)
+    numberOfMosaicColuns = math.ceil(imageWidth / sizeSquareImage)
+
+    for mosaicLin in range(1, numberOfMosaicLines):
+        for mosaicCol in range(1, numberOfMosaicColuns):
+            # setting the name of cropped mosaic image
+            mosaicLinName = '{:03d}'.format(mosaicLin)
+            mosaicColName = '{:03d}'.format(mosaicCol)
+            croppedImageName = inputImageName + '-L' + mosaicLinName + '-C' + mosaicColName
+            print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
+
+            # cropping mosaic image
+            croppedImage = 0
+            point1OriginalLinOfcroppedImage = 0
+            point1OriginalColOfcroppedImage = 0
+            point2OriginalLinOfcroppedImage = 0
+            point2OriginalColOfcroppedImage = 0
+
+            croppedImagePathAndImageName = 'ccccc'
+
+            # saving cropped mosaic image
+            # saveCroppedImage(croppedImagePathAndImageName, croppedImage)
+
+
+# copy classes file
+# def copyClassesFile(annotatedImagesPath, croppedImagesPath, className):
+#     croppedImagesPathAndClassFile = croppedImagesPath + className + "/" + "classes.txt"
+#     if not os.path.isfile(croppedImagesPathAndClassFile):
+#         copyfile(annotatedImagesPath + 'classes.txt', croppedImagesPathAndClassFile)
+#
+
+# crops the image
+def cropImage(inputImage, sizeSquareImage, mosaicLin, mosaicCol):
+    # defining the two points of the cropped image
+    linP1 = (mosaicLin - 1) * 128
+    colP1 = (mosaicCol - 1) * 128
+    linP2 = mosaicLin * 128
+    colP2 = mosaicCol * 128
+
+    # evaluating the final of image
+
+
 
     # calculating the new coordinates of cropped image
     if objectPosition == 'center':
         linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInCenter(annotatedBoundingBox)
-    elif objectPosition == 'north':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInNorth(annotatedBoundingBox)
-    elif objectPosition == 'south':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInSouth(annotatedBoundingBox)
-    elif objectPosition == 'east':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInEast(annotatedBoundingBox)
-    elif objectPosition == 'west':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInWest(annotatedBoundingBox)
-    elif objectPosition == 'northeast':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInNortheast(annotatedBoundingBox)
-    elif objectPosition == 'northwest':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInNorthwest(annotatedBoundingBox)
-    elif objectPosition == 'southeast':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInSoutheast(annotatedBoundingBox)
-    elif objectPosition == 'southwest':
-        linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInSouthwest(annotatedBoundingBox)
 
     # evaluating if is possible create the cropped bounding box
     if (linP1 < 0 or colP1 < 0 or linP2 < 0 or colP2 < 0):
         return False
 
         # cropping and saving bounding box in new image
-    croppedBoundingBoxImage = annotatedImage[linP1:linP2, colP1:colP2]
+    croppedBoundingBoxImage = inputImage[linP1:linP2, colP1:colP2]
     croppedImageWidth = linP2 - linP1
     croppedImageHeight = colP2 - colP1
 
@@ -290,7 +188,7 @@ def cropBoundingBox(annotatedImage, annotatedBoundingBox, sizeSquareImage,
                                                                   className, idBoundingBox, objectPosition)
 
     # saving the cropped image
-    saveCroppedBoundingBoxImage(croppedImagePathAndImageName, croppedBoundingBoxImage)
+    saveCroppedImage(croppedImagePathAndImageName, croppedBoundingBoxImage)
 
     # saving cropped annotation file
     saveCroppedBoundingBoxAnnotationFile(croppedImageWidth, croppedImageHeight, croppedImagePathAndImageName,
@@ -343,278 +241,14 @@ def calculateNewCoordinatesOfBoundingBoxInCenter(annotatedBoundingBox):
     return linP1, colP1, linP2, colP2
 
 
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInNorth(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1
-    colP1 = colP1 - halfOfWidthDifference
-    linP2 = linP1 + sizeSquareImage
-    colP2 = colP2 + halfOfWidthDifference
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInSouth(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1 - sizeSquareImage + heightBoundingBox
-    colP1 = colP1 - halfOfWidthDifference
-    linP2 = linP2
-    colP2 = colP2 + halfOfWidthDifference
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInEast(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1 - halfOfHeightDifference
-    colP1 = colP2 - sizeSquareImage
-    linP2 = linP2 + halfOfHeightDifference
-    colP2 = colP2
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInWest(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1 - halfOfHeightDifference
-    colP1 = colP1
-    linP2 = linP2 + halfOfHeightDifference
-    colP2 = colP1 + sizeSquareImage
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInNortheast(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1
-    colP1 = colP1 - sizeSquareImage + widthBoundingBox
-    linP2 = linP2 + sizeSquareImage - heightBoundingBox
-    colP2 = colP2
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInNorthwest(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1
-    colP1 = colP1
-    linP2 = linP2 + sizeSquareImage - heightBoundingBox
-    colP2 = colP2 + sizeSquareImage - widthBoundingBox
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInSoutheast(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1 - sizeSquareImage + heightBoundingBox
-    colP1 = colP1 - sizeSquareImage + widthBoundingBox
-    linP2 = linP2
-    colP2 = colP2
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
-# calculates the new coordinates of the cropped image of bounding box
-def calculateNewCoordinatesOfBoundingBoxInSouthwest(annotatedBoundingBox):
-    # defining rectangle to crop the original image
-    linP1 = annotatedBoundingBox.linPoint1
-    colP1 = annotatedBoundingBox.colPoint1
-    linP2 = annotatedBoundingBox.linPoint2
-    colP2 = annotatedBoundingBox.colPoint2
-
-    # calculating the dimensions of cropped image
-    heightBoundingBox = linP2 - linP1
-    widthBoundingBox = colP2 - colP1
-
-    # calculating the new position of bounding box according the position
-    heightDifference = sizeSquareImage - heightBoundingBox
-    widthDifference = sizeSquareImage - widthBoundingBox
-    halfOfHeightDifference = int(heightDifference / 2.0)
-    halfOfWidthDifference = int(widthDifference / 2.0)
-
-    # setting the new coordinates
-    linP1 = linP1 - sizeSquareImage + heightBoundingBox
-    colP1 = colP1
-    linP2 = linP2
-    colP2 = colP2 + sizeSquareImage - widthBoundingBox
-
-    # fine adjusting in the positions
-    if (linP2 - linP1) % 32 != 0:
-        linP2 += 1
-    if (colP2 - colP1) % 32 != 0:
-        colP2 += 1
-
-    return linP1, colP1, linP2, colP2
-
-
 # get the name of cropped image
 def getCroppedBoundingBoxImageName(croppedImagesPath, originalImageName, className, idBoundingBox, objectPosition):
     return croppedImagesPath + className + "/" \
            + originalImageName + '-' + className + '-bbox-' + str(idBoundingBox) + '-' + objectPosition
 
 
-# save the bounding box image
-def saveCroppedBoundingBoxImage(croppedImagePathAndImageName, croppedImage):
+# save the cropped image
+def saveCroppedImage(croppedImagePathAndImageName, croppedImage):
     # croppedImageName = croppedImagePathAndImageName
     cv2.imwrite(croppedImagePathAndImageName + '.jpg', croppedImage)
     print(croppedImagePathAndImageName)
@@ -658,26 +292,23 @@ def saveCroppedBoundingBoxAnnotationFile(croppedImageWidth, croppedImageHeight,
 # Main method
 # ###########################################
 if __name__ == '__main__':
-    ANNOTATED_BOUNDING_BOXES_DATABASE_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/CropMultipleBoundingBoxesProjectImages/Block 30/30.1 White Fly Annotated Original Images/'
-    CROPPED_BOUNDING_BOXES_DATABASE_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/CropMultipleBoundingBoxesProjectImages/Block 30/30.2 White Fly Cropped Images by Classes/'
+    INPUT_IMAGES_PATHS = \
+        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/input_images/'
+    MOSAIC_IMAGES_PATH = \
+        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/output_images_mosaic/'
 
-    print('Cropping Annotated Bounding Boxes')
+    print('Images Mosaic')
     print('---------------------------------')
     print('')
-    print('Input images path    : ', ANNOTATED_BOUNDING_BOXES_DATABASE_PATH)
-    print('Cropped images path  : ', CROPPED_BOUNDING_BOXES_DATABASE_PATH)
+    print('Input images path    : ', INPUT_IMAGES_PATHS)
+    print('Mosaic images path  : ', MOSAIC_IMAGES_PATH)
     print('')
-    # deleting all images of the folder
-    # os.remove(CROPPED_BOUNDING_BOXES_DATABASE_PATH + "*.*")
 
     # setting the size square image to crop with a fixed size (height and width) used in the YOLOv4
     sizeSquareImage = 128
 
     # processing the annotated images
-    processAnnotatedImages(ANNOTATED_BOUNDING_BOXES_DATABASE_PATH, CROPPED_BOUNDING_BOXES_DATABASE_PATH,
-                           sizeSquareImage)
+    processInputImages(INPUT_IMAGES_PATHS, MOSAIC_IMAGES_PATH, sizeSquareImage)
 
     # end of processing
     print('End of processing')
