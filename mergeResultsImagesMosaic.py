@@ -1,5 +1,5 @@
 """
-Project: Create a mosaic of images from images of any size.
+Project: Create a mosaic of results images from images of any size.
 Author: Rubens de Castro Pereira
 Advisor: Dibio Leandro Borges
 Date: 18/02/2021
