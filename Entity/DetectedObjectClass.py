@@ -1,7 +1,7 @@
 # Detected Object Class
 
 
-class DetectedObject:
+class DetectedObjectClass:
 
     def getValueOf(className):
         if className == 'exuvia':

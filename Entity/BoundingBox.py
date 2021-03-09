@@ -3,30 +3,18 @@ from Entity.Pixel import Pixel
 
 
 class BoundingBox:
-    def __init__(self, linPoint1=None, colPoint1=None, linPoint2=None, colPoint2=None, className=''):
+    def __init__(self, linPoint1=None, colPoint1=None, linPoint2=None, colPoint2=None, className='', confidence=0):
         self.linPoint1 = linPoint1
         self.colPoint1 = colPoint1
         self.linPoint2 = linPoint2
         self.colPoint2 = colPoint2
         self.className = className
-
-    # def __init__(self, checkedLinPoint1=None, checkedColPoint1=None, checkedLinPoint2=None, checkedColPoint2=None,
-    #              originalLinPoint1=None, originalColPoint1=None, originalLinPoint2=None, originalColPoint2=None,
-    #              className=None):
-    #     self.checkedLinPoint1 = checkedLinPoint1
-    #     self.checkedColPoint1 = checkedColPoint1
-    #     self.checkedLinPoint2 = checkedLinPoint2
-    #     self.checkedColPoint2 = checkedColPoint2
-    #     self.originalLinPoint1 = originalLinPoint1
-    #     self.originalColPoint1 = originalColPoint1
-    #     self.originalLinPoint2 = originalLinPoint2
-    #     self.originalColPoint2 = originalColPoint2
-    #     self.className = className
+        self.confidence = confidence
 
     def toString(self):
         text = 'Class: ' + self.className + ' P1: (' + str(self.linPoint1) + ',' + str(
             self.colPoint1) + ')  P2: (' + str(self.linPoint2) + ',' + str(
-            self.colPoint2) + ')'
+            self.colPoint2) + ')' + '  confidence: ' + str(self.confidence)
         return text
 
     def isBelongs(self, pixel: Pixel):

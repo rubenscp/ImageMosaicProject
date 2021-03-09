@@ -7,17 +7,11 @@ Version: 1.0.0
 """
 
 # Importing needed libraries
-
 import os
-from shutil import copyfile
 import math
-
-# from re import _expand
-
+import json
 import cv2
-
-# from Entity.BoundingBox import BoundingBox
-# from Entity.DetectedObject import DetectedObject
+from shutil import copyfile
 
 # ###########################################
 # Constants
@@ -36,12 +30,12 @@ LINE_FEED = '\n'
 
 
 # # processing all images of the folder
-def processInputImages(inputImagesPath, mosaicImagesPath, sizeSquareImage):
+def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, sizeSquareImage):
     # defining counters
     totalOfImages = 0
 
     # processing each image of the folder
-    for fileName in os.listdir(inputImagesPath):
+    for fileName in os.listdir(inputOriginalImagesPath):
 
         # check if file is an image or not
         if fileName.lower().find('jpg') == -1 and fileName.lower().find('jpeg') == -1:
@@ -63,7 +57,7 @@ def processInputImages(inputImagesPath, mosaicImagesPath, sizeSquareImage):
         # reading image
         print('')
         print('Reading image:', fileName)
-        inputImage = cv2.imread(inputImagesPath + fileName)
+        inputImage = cv2.imread(inputOriginalImagesPath + fileName)
         if inputImage is not None:
             # creating new file
             id = inputImageName[1:]
@@ -73,19 +67,7 @@ def processInputImages(inputImagesPath, mosaicImagesPath, sizeSquareImage):
                     imageWidth))
 
         # create the mosaic of images
-        cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, mosaicImagesPath)
-
-        # # open file of image annotations
-        # imageAnnotationsFile = open(inputImagesPath + imageName + ".txt", "r")
-        #
-        # # reading next line
-        # line = imageAnnotationsFile.readline()
-        #
-        # # defining id of bounding box
-        # idBoundingBox = 0
-        #
-        # # close file
-        # imageAnnotationsFile.close()
+        cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath)
 
     # printing statistics
     print('')
@@ -104,7 +86,7 @@ def processInputImages(inputImagesPath, mosaicImagesPath, sizeSquareImage):
 
 
 # crops the bounding box image
-def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, mosaicImagesPath):
+def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath):
     # get image shape
     imageHeight, imageWidth, imageChannel = inputImage.shape
 
@@ -112,79 +94,19 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, mosaicImagesPa
     numberOfMosaicLines = math.ceil(imageHeight / sizeSquareImage)
     numberOfMosaicColuns = math.ceil(imageWidth / sizeSquareImage)
 
-    # cropping images in the horizontal and vertical
-    for mosaicLin in range(1, numberOfMosaicLines):
-        for mosaicCol in range(1, numberOfMosaicColuns):
-            # setting the name of cropped mosaic image
-            # mosaicLinName = '{:03d}'.format(mosaicLin)
-            # mosaicColName = '{:03d}'.format(mosaicCol)
-            # croppedImageName = inputImageName + '-L' + mosaicLinName + '-C' + mosaicColName
-            # print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
-
+    # cropping images in the horizontal and vertical bands
+    for mosaicLin in range(1, numberOfMosaicLines + 1):
+        for mosaicCol in range(1, numberOfMosaicColuns + 1):
             # cropping mosaic image
-            cropImage(inputImage, inputImageName, mosaicImagesPath, sizeSquareImage, mosaicLin, mosaicCol)
+            cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                        mosaicLin, mosaicCol)
 
-            # croppedImage = 0
-            # point1OriginalLinOfcroppedImage = 0
-            # point1OriginalColOfcroppedImage = 0
-            # point2OriginalLinOfcroppedImage = 0
-            # point2OriginalColOfcroppedImage = 0
-            #
-            # croppedImagePathAndImageName = 'ccccc'
-
-            # saving cropped mosaic image
-            # saveCroppedImage(croppedImagePathAndImageName, croppedImage)
-
-
-# copy classes file
-# def copyClassesFile(annotatedImagesPath, croppedImagesPath, className):
-#     croppedImagesPathAndClassFile = croppedImagesPath + className + "/" + "classes.txt"
-#     if not os.path.isfile(croppedImagesPathAndClassFile):
-#         copyfile(annotatedImagesPath + 'classes.txt', croppedImagesPathAndClassFile)
-#
-
-# crops the image
-def cropImage(inputImage, inputImageName, mosaicImagesPath, sizeSquareImage, mosaicLin, mosaicCol):
-    # setting the name of cropped mosaic image
-    mosaicLinName = '{:03d}'.format(mosaicLin)
-    mosaicColName = '{:03d}'.format(mosaicCol)
-    croppedImageName = inputImageName + '-r' + mosaicLinName + '-c' + mosaicColName
-    croppedImagePathAndImageName = mosaicImagesPath + croppedImageName
-    print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
-
-    # defining the two points of the cropped image
-    linP1 = (mosaicLin - 1) * 128
-    colP1 = (mosaicCol - 1) * 128
-    linP2 = mosaicLin * 128
-    colP2 = mosaicCol * 128
-
-    # evaluating the final of image
-
-    # # calculating the new coordinates of cropped image
-    # if objectPosition == 'center':
-    #     linP1, colP1, linP2, colP2 = calculateNewCoordinatesOfBoundingBoxInCenter(annotatedBoundingBox)
-    #
-    # # evaluating if is possible create the cropped bounding box
-    # if (linP1 < 0 or colP1 < 0 or linP2 < 0 or colP2 < 0):
-    #     return False
-
-    # cropping and saving bounding box in new image
-    croppedImage = inputImage[linP1:linP2, colP1:colP2]
-    croppedImageWidth = linP2 - linP1
-    croppedImageHeight = colP2 - colP1
-
-    # # setting the full path and image name
-    # croppedImagePathAndImageName = getCroppedBoundingBoxImageName(croppedImagesPath, imageName,
-    # className, idBoundingBox, objectPosition)
-
-    # saving the cropped image
-    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
-
-    # # saving cropped annotation file
-    # saveCroppedBoundingBoxAnnotationFile(croppedImageWidth, croppedImageHeight, croppedImagePathAndImageName,
-    #                                      annotatedBoundingBox, linP1, colP1, linP2, colP2)
-
-    # return True
+    # cropping sliding images
+    # for mosaicLin in range(1, numberOfMosaicLines - 1):
+    #     for mosaicCol in range(1, numberOfMosaicColuns - 1):
+    #         # cropping mosaic image
+    #         cropSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+    #                           mosaicLin, mosaicCol)
 
 
 # ###########################################
@@ -192,50 +114,105 @@ def cropImage(inputImage, inputImageName, mosaicImagesPath, sizeSquareImage, mos
 # ###########################################
 
 
-# def createDirectory(croppedImagesPath, className):
-#     fullPathName = croppedImagesPath + className
-#     directory = os.path.dirname(fullPathName)
-#     if not os.path.exists(fullPathName):
-#         os.makedirs(fullPathName)
+# crops the image considering the horizontal and vertical bands
+def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
+                                mosaicCol):
+    # getting the image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # setting the name of cropped mosaic image
+    sufixName = '-hv'
+    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
+    # print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
+
+    # defining the two points of the cropped image
+    linP1 = (mosaicLin - 1) * sizeSquareImage
+    colP1 = (mosaicCol - 1) * sizeSquareImage
+    linP2 = mosaicLin * sizeSquareImage
+    colP2 = mosaicCol * sizeSquareImage
+
+    # checking the image boundaries
+    if (colP2 > imageWidth):
+        colP2 = imageWidth
+        colP1 = colP2 - sizeSquareImage
+
+    if (linP2 > imageHeight):
+        linP2 = imageHeight
+        linP1 = linP2 - sizeSquareImage
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
 
 
-# # calculates the new coordinates of the cropped image of bounding box
-# def calculateNewCoordinatesOfBoundingBoxInCenter(annotatedBoundingBox):
-#     # defining rectangle to crop the original image
-#     linP1 = annotatedBoundingBox.linPoint1
-#     colP1 = annotatedBoundingBox.colPoint1
-#     linP2 = annotatedBoundingBox.linPoint2
-#     colP2 = annotatedBoundingBox.colPoint2
-#
-#     # calculating the dimensions of cropped image
-#     heightBoundingBox = linP2 - linP1
-#     widthBoundingBox = colP2 - colP1
-#
-#     # calculating the new position of bounding box according the position
-#     heightDifference = sizeSquareImage - heightBoundingBox
-#     widthDifference = sizeSquareImage - widthBoundingBox
-#     halfOfHeightDifference = int(heightDifference / 2.0)
-#     halfOfWidthDifference = int(widthDifference / 2.0)
-#
-#     # setting the new coordinates
-#     linP1 = linP1 - halfOfHeightDifference
-#     colP1 = colP1 - halfOfWidthDifference
-#     linP2 = linP2 + halfOfHeightDifference
-#     colP2 = colP2 + halfOfWidthDifference
-#
-#     # fine adjusting in the positions
-#     if (linP2 - linP1) % 32 != 0:
-#         linP2 += 1
-#     if (colP2 - colP1) % 32 != 0:
-#         colP2 += 1
-#
-#     return linP1, colP1, linP2, colP2
+# crops the sliding image
+def cropSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
+                      mosaicCol):
+    # getting the image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # setting the name of cropped mosaic image
+    sufixName = '-slid'
+    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
+    # print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
+
+    # setting the slide size
+    sizeSlide = int(sizeSquareImage / 2)
+
+    # defining the two points of the cropped image
+    linP1 = (mosaicLin - 1) * sizeSquareImage + sizeSlide
+    colP1 = (mosaicCol - 1) * sizeSquareImage + sizeSlide
+    linP2 = mosaicLin * sizeSquareImage + sizeSlide
+    colP2 = mosaicCol * sizeSquareImage + sizeSlide
+
+    # checking the image boundaries
+    # if (colP2 > imageWidth):
+    #     colP2 = imageWidth
+    #     colP1 = colP2 - sizeSquareImage
+    #
+    # if (linP2 > imageHeight):
+    #     linP2 = imageHeight
+    #     linP1 = linP2 - sizeSquareImage
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
 
 
-# # get the name of cropped image
-# def getCroppedBoundingBoxImageName(croppedImagesPath, originalImageName, className, idBoundingBox, objectPosition):
-#     return croppedImagesPath + className + "/" \
-#            + originalImageName + '-' + className + '-bbox-' + str(idBoundingBox) + '-' + objectPosition
+# ###########################################
+# Methods of Level 4
+# ###########################################
+
+
+# define the cropped name
+def getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName):
+    # setting the name of cropped mosaic image
+    mosaicLinName = '{:03d}'.format(mosaicLin)
+    mosaicColName = '{:03d}'.format(mosaicCol)
+    croppedImageName = inputImageName + '-r' + mosaicLinName + '-c' + mosaicColName + sufixName
+    return croppedImageName
 
 
 # save the cropped image
@@ -245,61 +222,58 @@ def saveCroppedImage(croppedImagePathAndImageName, croppedImage):
     print(croppedImagePathAndImageName)
 
 
-# save the bounding box image
-def saveCroppedBoundingBoxAnnotationFile(croppedImageWidth, croppedImageHeight,
-                                         croppedImagePathAndImageName,
-                                         annotatedBoundingBox, linP1, colP1, linP2, colP2):
+# save the details of cropped image
+def saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, originalImageName, originalImageHeight,
+                                originalImageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                ):
     # setting annotation file
-    yoloAnnotationsFile = open(croppedImagePathAndImageName + '.txt', 'a+')
+    croppedImageName = getCroppedImageName(originalImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName + '-details.txt'
 
-    # setting new bounding box in yolo format
-    croppedLinP1 = annotatedBoundingBox.linPoint1 - linP1
-    croppedColP1 = annotatedBoundingBox.colPoint1 - colP1
-    croppedLinP2 = annotatedBoundingBox.linPoint2 - linP1
-    croppedColP2 = annotatedBoundingBox.colPoint2 - colP1
-    croppedBoundingBox = BoundingBox(croppedLinP1, croppedColP1, croppedLinP2, croppedColP2,
-                                     annotatedBoundingBox.className)
+    # setting the details in JSON format
+    croppedImageDetails = {
+        'croppedImagePath': str(outputCroppedImagesMosaicPath),
+        'originalImageName': str(originalImageName),
+        'originalImageHeight': str(originalImageHeight),
+        'originalImageWidth': str(originalImageWidth),
+        'croppedImageName': str(croppedImageName),
+        'sizeSquareImage': str(sizeSquareImage),
+        'mosaicLin': str(mosaicLin),
+        'mosaicCol': str(mosaicCol),
+        'linP1': str(linP1),
+        'colP1': str(colP1),
+        'linP2': str(linP2),
+        'colP2': str(colP2)
+    }
 
-    # getting the bounding box coordinates in  Yolo format
-    linOfCentrePoint, colOfCentrePoint, widthOfCentrePoint, heightOfCentrePoint = croppedBoundingBox.getYoloAnnotation(
-        croppedImageWidth, croppedImageHeight)
-
-    # setting line to write
-    line = str(DetectedObject.getValueOf(croppedBoundingBox.className)) + ' ' \
-           + "{:.6f}".format(colOfCentrePoint) + ' ' \
-           + "{:.6f}".format(linOfCentrePoint) + ' ' \
-           + "{:.6f}".format(widthOfCentrePoint) + ' ' \
-           + "{:.6f}".format(heightOfCentrePoint) \
-           + LINE_FEED
-
-    # write line
-    yoloAnnotationsFile.write(line)
-
-    # closing annotation file
-    yoloAnnotationsFile.close()
+    # writing details file
+    with open(croppedImagePathAndImageName, 'w') as json_file:
+        json.dump(croppedImageDetails, json_file)
 
 
 # ###########################################
 # Main method
 # ###########################################
 if __name__ == '__main__':
-    INPUT_IMAGES_PATHS = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/input_images/'
-    MOSAIC_IMAGES_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/output_images_mosaic/'
+    INPUT_ORIGINAL_IMAGES_PATH = \
+        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/01. input original images/'
+    OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = \
+        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/02. output cropped images mosaic/'
 
-    print('Images Mosaic')
+    print('Creates Images Mosaic')
     print('---------------------------------')
     print('')
-    print('Input images path    : ', INPUT_IMAGES_PATHS)
-    print('Mosaic images path  : ', MOSAIC_IMAGES_PATH)
+    print('Input images path    : ', INPUT_ORIGINAL_IMAGES_PATH)
+    print('Mosaic images path  : ', OUTPUT_CROPPED_IMAGES_MOSAIC_PATH)
     print('')
 
     # setting the size square image to crop with a fixed size (height and width) used in the YOLOv4
     sizeSquareImage = 128
 
     # processing the annotated images
-    processInputImages(INPUT_IMAGES_PATHS, MOSAIC_IMAGES_PATH, sizeSquareImage)
+    processInputImages(INPUT_ORIGINAL_IMAGES_PATH, OUTPUT_CROPPED_IMAGES_MOSAIC_PATH, sizeSquareImage)
 
     # end of processing
     print('End of processing')
