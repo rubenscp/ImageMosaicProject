@@ -66,6 +66,8 @@ def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, s
                 'Image: ' + inputImageName + "  shape: " + " height:" + str(imageHeight) + " width:" + str(
                     imageWidth))
 
+        # segments the original image to define the ROI (Region Of Interest)
+
         # create the mosaic of images
         cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath)
 
@@ -101,12 +103,26 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
             cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
                                         mosaicLin, mosaicCol)
 
-    # cropping sliding images
-    # for mosaicLin in range(1, numberOfMosaicLines - 1):
-    #     for mosaicCol in range(1, numberOfMosaicColuns - 1):
-    #         # cropping mosaic image
-    #         cropSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
-    #                           mosaicLin, mosaicCol)
+    # cropping images in the right sliding
+    for mosaicLin in range(1, numberOfMosaicLines - 1):
+        for mosaicCol in range(1, numberOfMosaicColuns - 1):
+            # cropping mosaic image
+            cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                  mosaicLin, mosaicCol)
+
+    # cropping images in the down sliding
+    for mosaicLin in range(1, numberOfMosaicLines - 1):
+        for mosaicCol in range(1, numberOfMosaicColuns - 1):
+            # cropping mosaic image
+            cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                 mosaicLin, mosaicCol)
+
+    # cropping images in the right and down sliding
+    for mosaicLin in range(1, numberOfMosaicLines - 1):
+        for mosaicCol in range(1, numberOfMosaicColuns - 1):
+            # cropping mosaic image
+            cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                       mosaicLin, mosaicCol)
 
 
 # ###########################################
@@ -124,7 +140,6 @@ def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesM
     sufixName = '-hv'
     croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
     croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
-    # print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
 
     # defining the two points of the cropped image
     linP1 = (mosaicLin - 1) * sizeSquareImage
@@ -156,17 +171,86 @@ def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesM
                                 )
 
 
-# crops the sliding image
-def cropSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
-                      mosaicCol):
+# crops the image considering the right sliding
+def cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
+                          mosaicCol):
     # getting the image shape
     imageHeight, imageWidth, imageChannel = inputImage.shape
 
     # setting the name of cropped mosaic image
-    sufixName = '-slid'
+    sufixName = '-slidRight'
     croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
     croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
-    # print(mosaicLinName, mosaicColName, inputImageName, croppedImageName)
+
+    # setting the slide size
+    sizeSlide = int(sizeSquareImage / 2)
+
+    # defining the two points of the cropped image
+    linP1 = (mosaicLin - 1) * sizeSquareImage
+    colP1 = (mosaicCol - 1) * sizeSquareImage + sizeSlide
+    linP2 = mosaicLin * sizeSquareImage
+    colP2 = mosaicCol * sizeSquareImage + sizeSlide
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
+
+
+# crops the image considering the down sliding
+def cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
+                         mosaicCol):
+    # getting the image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # setting the name of cropped mosaic image
+    sufixName = '-slidDown'
+    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
+
+    # setting the slide size
+    sizeSlide = int(sizeSquareImage / 2)
+
+    # defining the two points of the cropped image
+    linP1 = (mosaicLin - 1) * sizeSquareImage + sizeSlide
+    colP1 = (mosaicCol - 1) * sizeSquareImage
+    linP2 = mosaicLin * sizeSquareImage + sizeSlide
+    colP2 = mosaicCol * sizeSquareImage
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
+
+
+# crops the sliding image
+def cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
+                               mosaicCol):
+    # getting the image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # setting the name of cropped mosaic image
+    sufixName = '-slidRightDown'
+    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
 
     # setting the slide size
     sizeSlide = int(sizeSquareImage / 2)
@@ -176,15 +260,6 @@ def cropSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath,
     colP1 = (mosaicCol - 1) * sizeSquareImage + sizeSlide
     linP2 = mosaicLin * sizeSquareImage + sizeSlide
     colP2 = mosaicCol * sizeSquareImage + sizeSlide
-
-    # checking the image boundaries
-    # if (colP2 > imageWidth):
-    #     colP2 = imageWidth
-    #     colP1 = colP2 - sizeSquareImage
-    #
-    # if (linP2 > imageHeight):
-    #     linP2 = imageHeight
-    #     linP1 = linP2 - sizeSquareImage
 
     # cropping and saving bounding box in new image
     croppedImage = inputImage[linP1:linP2, colP1:colP2]
