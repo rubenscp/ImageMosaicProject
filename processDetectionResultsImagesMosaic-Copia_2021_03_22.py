@@ -12,9 +12,6 @@ import json
 import cv2
 import pathlib
 from shutil import copyfile
-import pandas as pd
-from numpy import full
-import time
 
 from Entity.BoundingBox import BoundingBox
 from Entity.CroppedImageDetails import CroppedImageDetails
@@ -145,16 +142,11 @@ def processDetectionResultsOfOneImage(inputImage, inputImageName, sizeSquareImag
                     BoundingBoxOfDetectedObject(croppedImageDetails, detectedObjectBoundingBox))
 
     # removing detected bounding boxes with value less than confidence threshold and
-    cont = 0
     for boundingBoxOfDetectedObject in allBoundingBoxOfDetectedObjectsList:
         # selecting just the detected bounding boxes with confidence greater or equal confidence threshold
         if boundingBoxOfDetectedObject.boundingBox.confidence >= confidenceThreshold:
             # calculating all coordinates of bounding boxes according by original images
             boundingBoxOfDetectedObject.setCoordinatesInOriginalImage()
-
-            # setting the bouding box identification
-            cont += 1
-            boundingBoxOfDetectedObject.boundingBox.identification = cont
 
             # adding the boudin box od detected objects into the list
             allBoundingBoxOfDetectedObjectsThresholdedList.append(boundingBoxOfDetectedObject)
@@ -170,7 +162,7 @@ def processDetectionResultsOfOneImage(inputImage, inputImageName, sizeSquareImag
     # evaluating the bounding boxes to get the final bounding boxes
     validBoundingBoxesList = getFinalBoundingBoxes(allBoundingBoxOfDetectedObjectsThresholdedList)
 
-    # evaluating and drwaing the bounding boxes of the detected objects
+    # evaluating and defining the bounding boxes of the detected objects
     for validBoundingBox in validBoundingBoxesList:
         # defining bounding box parameters
         # bgrColorBoundingBox = (0, 0, 255)
@@ -198,13 +190,6 @@ def processDetectionResultsOfOneImage(inputImage, inputImageName, sizeSquareImag
     finalImageName = outputMergedImagesPath + inputImageName + '-final' + \
                      '-[confidence-' + str(confidenceThreshold) + '%]'
     saveResultImage(finalImageName, inputImage)
-
-    # saving bounding boxes list in MS Excel format
-    # inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath,
-    # inputDetectedCroppedImagesPath, outputMergedImagesPath,
-    finalImageNameInMSExcel = outputMergedImagesPath + inputImageName + '-final' + \
-                              '-[confidence-' + str(confidenceThreshold) + '%].xlsx'
-    saveResultInMSExcelFormat(finalImageNameInMSExcel, validBoundingBoxesList)
 
 
 # ###########################################
@@ -405,9 +390,7 @@ def getFinalBoundingBoxes(allBoundingBoxOfDetectedObjectsList):
                                       boundingBoxOfDetectedObject.linPoint2InOriginalImage,
                                       boundingBoxOfDetectedObject.colPoint2InOriginalImage,
                                       boundingBoxOfDetectedObject.boundingBox.className,
-                                      boundingBoxOfDetectedObject.boundingBox.confidence,
-                                      boundingBoxOfDetectedObject.boundingBox.identification,
-                                      boundingBoxOfDetectedObject.boundingBox.processed)
+                                      boundingBoxOfDetectedObject.boundingBox.confidence)
 
         # selecting the bounding box with the greater confidence value
         for overlappedBoundingBox in overlappedBoundingBoxes:
@@ -419,10 +402,10 @@ def getFinalBoundingBoxes(allBoundingBoxOfDetectedObjectsList):
                 bestBoundingBox.linPoint2 = overlappedBoundingBox.linPoint2InOriginalImage
                 bestBoundingBox.colPoint2 = overlappedBoundingBox.colPoint2InOriginalImage
 
-        # if boundingBoxOfDetectedObject.croppedImageDetails.croppedImageName == 'P1040801-r005-c016-slidRightDown' \
-        #         or boundingBoxOfDetectedObject.croppedImageDetails.croppedImageName == 'P1040801-r005-c016-slidRightDown' \
-        #         or boundingBoxOfDetectedObject.croppedImageDetails.croppedImageName == 'P1040801-r005-c017-slidDown':
-        #     x = 0
+        if boundingBoxOfDetectedObject.croppedImageDetails.croppedImageName == 'P1040801-r005-c016-slidRightDown' \
+                or boundingBoxOfDetectedObject.croppedImageDetails.croppedImageName == 'P1040801-r005-c016-slidRightDown' \
+                or boundingBoxOfDetectedObject.croppedImageDetails.croppedImageName == 'P1040801-r005-c017-slidDown':
+            x = 0
 
         if len(overlappedBoundingBoxes) > 1:  # has overlapped bounding boxes
 
@@ -450,11 +433,11 @@ def getFinalBoundingBoxes(allBoundingBoxOfDetectedObjectsList):
         # adding valid bound box
         validBoundingBoxesList.append(bestBoundingBox)
 
-    # removing bounding boxes that are in others bounding boxes according by confidence
-    finalBoundingBoxesList = removeFalseBoundingBoxesInOtherBoundingBox(validBoundingBoxesList)
+        # # setting the item processed
+        # boundingBoxOfDetectedObject.processed = True
 
     # returning result
-    return finalBoundingBoxesList
+    return validBoundingBoxesList
 
 
 def drawBoundingBox(inputImage, boundingBox, bgrColorBoundingBox, thicknessBoundingBox):
@@ -505,37 +488,11 @@ def getCroppedImageName(inputImageName, mosaicLin, mosaicCol):
 
 # save the image
 def saveResultImage(croppedImagePathAndImageName, resultImage):
-    # adjusting the file name
-    croppedImagePathAndImageName += '.jpg'
-
-    # removing old file
-    removeFile(croppedImagePathAndImageName)
-
-    # save image
-    cv2.imwrite(croppedImagePathAndImageName, resultImage)
+    cv2.imwrite(croppedImagePathAndImageName + '.jpg', resultImage)
     print(croppedImagePathAndImageName)
 
 
-# save bounding boxes in the MS Excel format
-# Source: https://xlsxwriter.readthedocs.io/example_pandas_simple.html
-def saveResultInMSExcelFormat(finalImageNameInMSExcel, validBoundingBoxesList):
-    # removing old file
-    removeFile(finalImageNameInMSExcel)
-
-    # Create a Pandas dataframe from some data.
-    # dataFrame  = pd.DataFrame({'Data': [10, 20, 30, 20, 15, 30, 45]})
-    dataFrame = pd.DataFrame.from_records([bb.to_dict() for bb in validBoundingBoxesList])
-
-    # Create a Pandas Excel writer using XlsxWriter as the engine.
-    writer = pd.ExcelWriter(finalImageNameInMSExcel, engine='xlsxwriter')
-
-    # Convert the dataframe to an XlsxWriter Excel object.
-    dataFrame.to_excel(writer, sheet_name='detectionResults')
-
-    # Close the Pandas Excel writer and output the Excel file.
-    writer.save()
-
-
+# get all bounding boxes that overlapping
 def getOverlappedBoundingBoxes(allBoundingBoxOfDetectedObjectsList, boundingBoxOfDetectedObject):
     # initializing objects
     overlappedBoundingBoxesOfDetectedObjectList = []
@@ -841,9 +798,6 @@ def getOverlappedBoundingBoxesByIntersectionOfStraights(allBoundingBoxOfDetected
 
 
 # get all bounding boxes that overlapping by lines
-#
-# Algoritmo para detectar a interseção de dois retângulos?
-# https://qastack.com.br/programming/115426/algorithm-to-detect-intersection-of-two-rectangles
 def getOverlappedBoundingBoxesBySeparatorAxis(allBoundingBoxOfDetectedObjectsList, boundingBoxOfDetectedObject):
     # initializing objects
     overlappedBoundingBoxesOfDetectedObjectList = []
@@ -902,74 +856,6 @@ def getOverlappedBoundingBoxesBySeparatorAxis(allBoundingBoxOfDetectedObjectsLis
     return overlappedBoundingBoxesOfDetectedObjectList
 
 
-# removes bounding boxes that are in others bounding boxes according by confidence
-def removeFalseBoundingBoxesInOtherBoundingBox(validBoundingBoxesList):
-    # initializing objects
-    resultBoundingBoxesList = []
-
-    for validBoundingBox in validBoundingBoxesList:
-
-        # setting the firts bounding box of the list
-        if len(resultBoundingBoxesList) == 0:
-            resultBoundingBoxesList.append(validBoundingBox)
-            continue
-
-        # evaluating if valid bounding box is in the some bonding box of the result list
-        if not checkBoundingBoxInBoundingBoxResultList(validBoundingBox, resultBoundingBoxesList):
-            resultBoundingBoxesList.append(validBoundingBox)
-
-    # returning result
-    return resultBoundingBoxesList
-
-
-# # removes bounding boxes that are in others bounding boxes according by confidence
-# def removeFalseBoundingBoxesInOtherBoudingBox(validBoundingBoxesList):
-#     # initializing objects
-#     resultBoundingBoxesList = []
-#     # tempBoundingBoxesList = validBoundingBoxesList.copy()
-#     isToAddBaseBoundingBox = False
-#
-#     for validBoundingBox in validBoundingBoxesList:
-#         # evaluating if valid bounding box was processed
-#         if validBoundingBox.processed:
-#             continue
-#
-#         # initializing list of bouding boxes that are in the base bounding box
-#         boundingBoxesInBaseBoundingBoxList = []
-#
-#         # for tempBoundingBox in tempBoundingBoxesList:
-#         for tempBoundingBox in validBoundingBoxesList:
-#             if validBoundingBox.identification == tempBoundingBox.identification:
-#                 continue
-#
-#             # selecting all bounding boxes that are in the base bounding box
-#             if checkBoudingBoxInBoundingBox(validBoundingBox, tempBoundingBox) or \
-#                     checkBoudingBoxInBoundingBox(tempBoundingBox, validBoundingBox):
-#                 boundingBoxesInBaseBoundingBoxList.append(tempBoundingBox)
-#
-#         # selecting the bounding box that has the greater confidence value
-#         if len(boundingBoxesInBaseBoundingBoxList) == 0:
-#             resultBoundingBoxesList.append(validBoundingBox)
-#         else:
-#             baseBoundingBox = validBoundingBox
-#             for boundingBoxInBaseBoundingBox in boundingBoxesInBaseBoundingBoxList:
-#                 boundingBoxInBaseBoundingBox.processed = True
-#                 if (boundingBoxInBaseBoundingBox.confidence > baseBoundingBox.confidence):
-#                     baseBoundingBox = boundingBoxInBaseBoundingBox
-#             resultBoundingBoxesList.append(baseBoundingBox)
-#
-#         # # setting the base bounding box as correct
-#         # if isToAddBaseBoundingBox:
-#         #     resultBoundingBoxesList.append(baseBoundingBox)
-#
-#         # setting valid (base) bounding box as processed
-#         validBoundingBox.processed = True
-#
-#     # returning result
-#     return resultBoundingBoxesList
-#
-#
-
 # ###########################################
 # Methods of Level 4
 # ###########################################
@@ -977,8 +863,7 @@ def removeFalseBoundingBoxesInOtherBoundingBox(validBoundingBoxesList):
 
 def checkPointBelongsToBoundingBox(linPointToEvaluate, colPointToEvaluate,
                                    linPoint1OfBoundingBox, colPoint1OfBoundingBox,
-                                   linPoint2OfBoundingBox, colPoint2OfBoundingBox,
-                                   cropError):
+                                   linPoint2OfBoundingBox, colPoint2OfBoundingBox, cropError):
     # checking if the vertex point belongs to the bounding box
     if (linPoint1OfBoundingBox - cropError) <= linPointToEvaluate <= (linPoint2OfBoundingBox + cropError) and \
             (colPoint1OfBoundingBox - cropError) <= colPointToEvaluate <= (colPoint2OfBoundingBox + cropError):
@@ -1043,74 +928,6 @@ def checkBySeparatorAxis(linStart1, colStart1, linEnd1, colEnd1, linStart2, colS
 
     # return the resul
     return result
-
-
-# check if the bounding box to check is in the base bounding box
-def checkBoundingBoxInBoundingBox(baseBoundingBox, boundingBoxToCheck):
-    imageCropError = 0
-    # checking all vertex point
-    if (checkPointBelongsToBoundingBox(boundingBoxToCheck.linPoint1, boundingBoxToCheck.colPoint1,
-                                       baseBoundingBox.linPoint1, baseBoundingBox.colPoint1,
-                                       baseBoundingBox.linPoint2, baseBoundingBox.colPoint2,
-                                       imageCropError)
-            and checkPointBelongsToBoundingBox(boundingBoxToCheck.linPoint1, boundingBoxToCheck.colPoint2,
-                                               baseBoundingBox.linPoint1, baseBoundingBox.colPoint1,
-                                               baseBoundingBox.linPoint2, baseBoundingBox.colPoint2,
-                                               imageCropError)
-            and checkPointBelongsToBoundingBox(boundingBoxToCheck.linPoint2, boundingBoxToCheck.colPoint1,
-                                               baseBoundingBox.linPoint1, baseBoundingBox.colPoint1,
-                                               baseBoundingBox.linPoint2, baseBoundingBox.colPoint2,
-                                               imageCropError)
-            and checkPointBelongsToBoundingBox(boundingBoxToCheck.linPoint2, boundingBoxToCheck.colPoint2,
-                                               baseBoundingBox.linPoint1, baseBoundingBox.colPoint1,
-                                               baseBoundingBox.linPoint2, baseBoundingBox.colPoint2,
-                                               imageCropError)
-
-    ):
-        # return the second bounding box belongs fully to the first bounding box
-        return True
-
-    # return the point (lin, col) does not belong to the bounding box
-    return False
-
-
-# check if the bounding box is in the some bounding box of the result list
-def checkBoundingBoxInBoundingBoxResultList(boundingBox, resultBoundingBoxesList):
-    for resultBoundingBox in resultBoundingBoxesList:
-
-        # checking all vertex point
-        imageCropError = 0
-        if (checkPointBelongsToBoundingBox(boundingBox.linPoint1, boundingBox.colPoint1,
-                                           resultBoundingBox.linPoint1, resultBoundingBox.colPoint1,
-                                           resultBoundingBox.linPoint2, resultBoundingBox.colPoint2,
-                                           imageCropError)
-                and checkPointBelongsToBoundingBox(boundingBox.linPoint1, boundingBox.colPoint2,
-                                                   resultBoundingBox.linPoint1, resultBoundingBox.colPoint1,
-                                                   resultBoundingBox.linPoint2, resultBoundingBox.colPoint2,
-                                                   imageCropError)
-                and checkPointBelongsToBoundingBox(boundingBox.linPoint2, boundingBox.colPoint1,
-                                                   resultBoundingBox.linPoint1, resultBoundingBox.colPoint1,
-                                                   resultBoundingBox.linPoint2, resultBoundingBox.colPoint2,
-                                                   imageCropError)
-                and checkPointBelongsToBoundingBox(boundingBox.linPoint2, boundingBox.colPoint2,
-                                                   resultBoundingBox.linPoint1, resultBoundingBox.colPoint1,
-                                                   resultBoundingBox.linPoint2, resultBoundingBox.colPoint2,
-                                                   imageCropError)
-        ):
-            # return the second bounding box belongs fully to the first bounding box
-            return True
-
-    # return the point (lin, col) does not belong to the bounding box
-    return False
-
-
-# remove file
-def removeFile(fullPathAndFileName):
-    if os.path.exists(fullPathAndFileName):
-        os.remove(fullPathAndFileName)
-
-        # sleep to operational system remove fully the file
-        # time.sleep(2)
 
 
 # ###########################################

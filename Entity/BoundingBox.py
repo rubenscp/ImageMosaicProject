@@ -3,13 +3,16 @@ from Entity.Pixel import Pixel
 
 
 class BoundingBox:
-    def __init__(self, linPoint1=None, colPoint1=None, linPoint2=None, colPoint2=None, className='', confidence=0):
+    def __init__(self, linPoint1=None, colPoint1=None, linPoint2=None, colPoint2=None, className='', confidence=0,
+                 identification=0, processed=False):
         self.linPoint1 = linPoint1
         self.colPoint1 = colPoint1
         self.linPoint2 = linPoint2
         self.colPoint2 = colPoint2
         self.className = className
         self.confidence = confidence
+        self.identification = identification
+        self.processed = processed
 
     def toString(self):
         text = 'Class: ' + self.className + ' P1: (' + str(self.linPoint1) + ',' + str(
@@ -102,3 +105,14 @@ class BoundingBox:
             self.className = 'instar1ou2'
         elif idClass == 8:
             self.className = 'instar3ou4'
+
+    def to_dict(self):
+        return {
+            'id': self.identification,
+            'className': self.className,
+            'linP1': self.linPoint1,
+            'colP1': self.colPoint1,
+            'linP2': self.linPoint2,
+            'colP2': self.colPoint2,
+            'confidence': self.confidence,
+        }
