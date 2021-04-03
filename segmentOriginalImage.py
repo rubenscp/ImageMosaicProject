@@ -383,6 +383,7 @@ def segmentByWatershedAdjusted(inputImage, inputImageName, outputCroppedImagesMo
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
 # colorizer.org
 def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
     height = 480
@@ -395,13 +396,13 @@ def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
     # convert to hsv
     hsvImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2HSV)
     imageWindowName = inputImageName + '-hsvImage'
-    showImageInWindow(hsvImage, imageWindowName, width, height, True)
+    showImageInWindow(hsvImage, imageWindowName, width, height, False)
 
     # mask of green (36,25,25) ~ (86, 255,255)
-    # mask = cv2.inRange(hsvImage, (40, 40, 40), (70, 255, 255))
-    mask = cv2.inRange(hsvImage, (0, 100, 100), (220, 255, 255))
+    # mask = cv2.inRange(hsvImage, (0, 100, 100), (220, 255, 255))
+    mask = cv2.inRange(hsvImage, (40, 40, 40), (70, 255, 255))
     imageWindowName = inputImageName + '-threshold'
-    showImageInWindow(mask, imageWindowName, width, height, True)
+    showImageInWindow(mask, imageWindowName, width, height, False)
 
     # #################################################################
     # Step 2: removes noise of the image
@@ -412,7 +413,7 @@ def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
     openingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, openingKernel, iterations=2)
     imageWindowName = inputImageName + '-opening'
-    showImageInWindow(opening, imageWindowName, width, height, True)
+    showImageInWindow(opening, imageWindowName, width, height, False)
 
     # #################################################################
     # Step 3: get sure foreground area of "opening image" by dilation
@@ -420,12 +421,12 @@ def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
     dilatingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     foregroundImage = cv2.morphologyEx(opening, cv2.MORPH_DILATE, dilatingKernel, iterations=10)
     imageWindowName = inputImageName + '-foregroundImage-by-dilating-3x3'
-    showImageInWindow(foregroundImage, imageWindowName, width, height, True)
+    showImageInWindow(foregroundImage, imageWindowName, width, height, False)
 
     dilatingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     foregroundImage = cv2.morphologyEx(foregroundImage, cv2.MORPH_DILATE, dilatingKernel, iterations=5)
     imageWindowName = inputImageName + '-foregroundImage-by-dilating-5x5'
-    showImageInWindow(foregroundImage, imageWindowName, width, height, True)
+    showImageInWindow(foregroundImage, imageWindowName, width, height, False)
 
     # #################################################################
     # Step 4: multiply the foreground image by input image
@@ -463,10 +464,10 @@ def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
 
     # resultImage[foregroundImage > 0] = inputImage
     imageWindowName = inputImageName + '-resultImage'
-    showImageInWindow(resultImage, imageWindowName, width, height, True)
+    showImageInWindow(resultImage, imageWindowName, width, height, False)
 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
     # saving the result image
     resultImageName = outputImagesMosaicPath + inputImageName + '-just-leaf'
@@ -711,7 +712,7 @@ if __name__ == '__main__':
     processInputImages(INPUT_ORIGINAL_IMAGES_PATH, OUTPUT_CROPPED_IMAGES_MOSAIC_PATH, sizeSquareImage)
 
     # stop processing to view the results
-    cv2.waitKey(0)
+    # cv2.waitKey(0)
 
     # end of processing
     print('End of processing')

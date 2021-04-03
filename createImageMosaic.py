@@ -12,6 +12,9 @@ import math
 import json
 import cv2
 from shutil import copyfile
+# import pandas as pd
+from pandas import read_excel
+import numpy as np
 
 # ###########################################
 # Constants
@@ -30,9 +33,15 @@ LINE_FEED = '\n'
 
 
 # # processing all images of the folder
-def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, sizeSquareImage):
+def processInputImages(imageMosaicPath, inputOriginalImagesPath, outputCroppedImagesMosaicPath, sizeSquareImage):
     # defining counters
     totalOfImages = 0
+
+    # getting roi of images by Excel files in the version 2003 (xls)
+    imageMosaicPathAndROIFile = imageMosaicPath + 'ROI (Region Of Interest) of mosaic.xls'
+    roi = getROI(imageMosaicPathAndROIFile)
+
+    # xxx1 = isROI(roi, 1, 1)
 
     # processing each image of the folder
     for fileName in os.listdir(inputOriginalImagesPath):
@@ -67,9 +76,11 @@ def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, s
                     imageWidth))
 
         # segments the original image to define the ROI (Region Of Interest)
+        segmentedInputImage = segmentByMorphological(inputImage, inputImageName, outputCroppedImagesMosaicPath)
 
         # create the mosaic of images
-        cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath)
+        cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath, roi,
+                         segmentedInputImage)
 
     # printing statistics
     print('')
@@ -86,9 +97,22 @@ def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, s
 # Methods of Level 2
 # ###########################################
 
+# get ROI (Region Of Interest)
+def getROI(imageMosaicPathAndROIFile):
+    # defining roi
+    roi = None
+
+    # read excel file in the version 2003
+    roi = read_excel(imageMosaicPathAndROIFile, sheet_name='roi', header=None, index_col=None).to_numpy()
+
+    # returning ROI
+    return roi
+
 
 # crops the bounding box image
-def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath):
+def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath,
+                     roi,
+                     segmentedInputImage):
     # get image shape
     imageHeight, imageWidth, imageChannel = inputImage.shape
 
@@ -97,42 +121,201 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
     numberOfMosaicColuns = math.ceil(imageWidth / sizeSquareImage)
 
     # cropping images in the horizontal and vertical bands
+    mosaicImage = inputImage.copy()
     for mosaicLin in range(1, numberOfMosaicLines + 1):
         for mosaicCol in range(1, numberOfMosaicColuns + 1):
-            # cropping mosaic image
-            cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
-                                        mosaicLin, mosaicCol)
+            # setting indicator of image cropping
+            croppingImageOfROI = False
+            croppingImageOfSegmentedImage = False
+
+            # defining the two points of the cropped image
+            linP1, colP1, linP2, colP2 = getP1AndP2OfHorizontalVerticalCrop(mosaicLin, mosaicCol,
+                                                                            sizeSquareImage,
+                                                                            imageWidth,
+                                                                            imageHeight)
+
+            # selecting mosaic according by ROI
+            if isROI(roi, mosaicLin, mosaicCol):
+                croppingImageOfROI = True
+                # percentageBackgroundDesired = 0
+                # if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                #     croppingImageOfROI = True
+            else:
+                percentageBackgroundDesired = 10
+                if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                    croppingImageOfSegmentedImage = True
+
+            # selecting mosaic according by ROI
+            if croppingImageOfROI or croppingImageOfSegmentedImage:
+                # cropping mosaic image
+                cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                            mosaicLin, mosaicCol, mosaicImage,
+                                            croppingImageOfROI, croppingImageOfSegmentedImage)
+
+    # saving the mosaic image
+    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-hv'
+    saveImage(mosaicImageName, mosaicImage)
 
     # cropping images in the right sliding
+    mosaicImage = inputImage.copy()
     for mosaicLin in range(1, numberOfMosaicLines - 1):
         for mosaicCol in range(1, numberOfMosaicColuns - 1):
-            # cropping mosaic image
-            cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
-                                  mosaicLin, mosaicCol)
+
+            # setting indicator of image cropping
+            croppingImageOfROI = False
+            croppingImageOfSegmentedImage = False
+
+            # defining the two points of the cropped image
+            linP1, colP1, linP2, colP2 = getP1AndP2OfRightSlidingCrop(mosaicLin, mosaicCol,
+                                                                      sizeSquareImage,
+                                                                      imageWidth,
+                                                                      imageHeight)
+
+            # selecting mosaic according by ROI
+            if isROI(roi, mosaicLin, mosaicCol):
+                croppingImageOfROI = True
+                # percentageBackgroundDesired = 0
+                # if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                #     croppingImageOfROI = True
+            else:
+                percentageBackgroundDesired = 10
+                if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                    croppingImageOfSegmentedImage = True
+
+            # selecting mosaic according by ROI
+            if croppingImageOfROI or croppingImageOfSegmentedImage:
+                # cropping mosaic image
+                cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                      mosaicLin, mosaicCol, mosaicImage,
+                                      croppingImageOfROI, croppingImageOfSegmentedImage)
+
+    # saving the mosaic image
+    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-rightSliding'
+    saveImage(mosaicImageName, mosaicImage)
 
     # cropping images in the down sliding
+    mosaicImage = inputImage.copy()
     for mosaicLin in range(1, numberOfMosaicLines - 1):
         for mosaicCol in range(1, numberOfMosaicColuns - 1):
-            # cropping mosaic image
-            cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
-                                 mosaicLin, mosaicCol)
+            # setting indicator of image cropping
+            croppingImageOfROI = False
+            croppingImageOfSegmentedImage = False
+
+            # defining the two points of the cropped image
+            linP1, colP1, linP2, colP2 = getP1AndP2OfDownSlidingCrop(mosaicLin, mosaicCol,
+                                                                     sizeSquareImage,
+                                                                     imageWidth,
+                                                                     imageHeight)
+
+            # selecting mosaic according by ROI
+            if isROI(roi, mosaicLin, mosaicCol):
+                croppingImageOfROI = True
+                # percentageBackgroundDesired = 0
+                # if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                #     croppingImageOfROI = True
+            else:
+                percentageBackgroundDesired = 10
+                if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                    croppingImageOfSegmentedImage = True
+
+            # selecting mosaic according by ROI
+            if croppingImageOfROI or croppingImageOfSegmentedImage:
+                # cropping mosaic image
+                cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                     mosaicLin, mosaicCol, mosaicImage,
+                                     croppingImageOfROI, croppingImageOfSegmentedImage)
+
+    # saving the mosaic image
+    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-downSliding'
+    saveImage(mosaicImageName, mosaicImage)
 
     # cropping images in the right and down sliding
+    mosaicImage = inputImage.copy()
     for mosaicLin in range(1, numberOfMosaicLines - 1):
         for mosaicCol in range(1, numberOfMosaicColuns - 1):
-            # cropping mosaic image
-            cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
-                                       mosaicLin, mosaicCol)
+
+            # setting indicator of image cropping
+            croppingImageOfROI = False
+            croppingImageOfSegmentedImage = False
+
+            # defining the two points of the cropped image
+            linP1, colP1, linP2, colP2 = getP1AndP2OfRightDownSlidingCrop(mosaicLin, mosaicCol,
+                                                                          sizeSquareImage,
+                                                                          imageWidth,
+                                                                          imageHeight)
+
+            # selecting mosaic according by ROI
+            if isROI(roi, mosaicLin, mosaicCol):
+                croppingImageOfROI = True
+                # percentageBackgroundDesired = 0
+                # if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                #     croppingImageOfROI = True
+            else:
+                percentageBackgroundDesired = 10
+                if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+                    croppingImageOfSegmentedImage = True
+
+            # selecting mosaic according by ROI
+            if croppingImageOfROI or croppingImageOfSegmentedImage:
+                # cropping mosaic image
+                cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                           mosaicLin, mosaicCol, mosaicImage,
+                                           croppingImageOfROI, croppingImageOfSegmentedImage)
+
+    # saving the mosaic image
+    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-rightDownSliding'
+    saveImage(mosaicImageName, mosaicImage)
 
 
 # ###########################################
 # Methods of Level 3
 # ###########################################
 
+# check if element belongs to ROI or not
+def isROI(roi, mosaicLin, mosaicCol):
+    lines, columns = roi.shape
+    if mosaicLin >= lines or mosaicCol >= columns:
+        return False
+
+    element = roi[mosaicLin, mosaicCol]
+    return True if element == 'x' else False
+
+
+# check if cropped image is leaf or background
+def isLeaf(segmentedImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+    # cropping image
+    croppedImage = segmentedImage[linP1:linP2, colP1:colP2]
+
+    #  getting cropped image shape
+    imageHeight, imageWidth, imageChannel = croppedImage.shape
+
+    # checking if is leaf
+    blackPixelsCounter = 0
+    for lin in range(imageHeight):
+        for col in range(imageWidth):
+            if all(croppedImage[lin, col] == [0, 0, 0]):
+                blackPixelsCounter += 1
+
+    # calculating the proportion of black pixels (background)
+    percentageBackground = (blackPixelsCounter / (imageHeight * imageWidth)) * 100
+
+    # when background is greater than certain value in the cropped image, reject the cropped image
+    if percentageBackgroundDesired == 0 and percentageBackground == 0:
+        # returning the cropped image is leaf
+        return True
+
+    if percentageBackground >= percentageBackgroundDesired:
+        # returning the cropped image is NOT leaf
+        return False
+
+    # returning the cropped image is leaf
+    return True
+
 
 # crops the image considering the horizontal and vertical bands
-def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
-                                mosaicCol):
+def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                                mosaicLin, mosaicCol, mosaicImage,
+                                croppingImageOfROI, croppingImageOfSegmentedImage):
     # getting the image shape
     imageHeight, imageWidth, imageChannel = inputImage.shape
 
@@ -142,19 +325,23 @@ def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesM
     croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
 
     # defining the two points of the cropped image
-    linP1 = (mosaicLin - 1) * sizeSquareImage
-    colP1 = (mosaicCol - 1) * sizeSquareImage
-    linP2 = mosaicLin * sizeSquareImage
-    colP2 = mosaicCol * sizeSquareImage
+    linP1, colP1, linP2, colP2 = getP1AndP2OfHorizontalVerticalCrop(mosaicLin, mosaicCol, sizeSquareImage,
+                                                                    imageWidth, imageHeight)
 
-    # checking the image boundaries
-    if (colP2 > imageWidth):
-        colP2 = imageWidth
-        colP1 = colP2 - sizeSquareImage
-
-    if (linP2 > imageHeight):
-        linP2 = imageHeight
-        linP1 = linP2 - sizeSquareImage
+    # # defining the two points of the cropped image
+    # linP1 = (mosaicLin - 1) * sizeSquareImage
+    # colP1 = (mosaicCol - 1) * sizeSquareImage
+    # linP2 = mosaicLin * sizeSquareImage
+    # colP2 = mosaicCol * sizeSquareImage
+    #
+    # # checking the image boundaries
+    # if (colP2 > imageWidth):
+    #     colP2 = imageWidth
+    #     colP1 = colP2 - sizeSquareImage
+    #
+    # if (linP2 > imageHeight):
+    #     linP2 = imageHeight
+    #     linP1 = linP2 - sizeSquareImage
 
     # cropping and saving bounding box in new image
     croppedImage = inputImage[linP1:linP2, colP1:colP2]
@@ -162,7 +349,7 @@ def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesM
     croppedImageHeight = colP2 - colP1
 
     # saving the cropped image
-    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
+    saveImage(croppedImagePathAndImageName, croppedImage)
 
     # saving the cropped image details
     saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
@@ -170,10 +357,23 @@ def cropHorizontalVerticalImage(inputImage, inputImageName, outputCroppedImagesM
                                 sufixName
                                 )
 
+    # draws grid into mosaic image
+    if croppingImageOfROI:
+        bgrBoxColor = [255, 0, 0]  # blue color
+    else:
+        bgrBoxColor = [0, 0, 255]  # red color
+    thickness = 1
+    mosaicImage = drawMosaicImage(mosaicImage,
+                                  mosaicLin, mosaicCol,
+                                  linP1, colP1, linP2, colP2,
+                                  bgrBoxColor,
+                                  thickness)
+
 
 # crops the image considering the right sliding
-def cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
-                          mosaicCol):
+def cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                          mosaicLin, mosaicCol, mosaicImage,
+                          croppingImageOfROI, croppingImageOfSegmentedImage):
     # getting the image shape
     imageHeight, imageWidth, imageChannel = inputImage.shape
 
@@ -182,6 +382,175 @@ def cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicP
     croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
     croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
 
+    # defining the two points of the cropped image
+    linP1, colP1, linP2, colP2 = getP1AndP2OfRightSlidingCrop(mosaicLin, mosaicCol, sizeSquareImage,
+                                                              imageWidth, imageHeight)
+
+    # # setting the slide size
+    # sizeSlide = int(sizeSquareImage / 2)
+    #
+    # # defining the two points of the cropped image
+    # linP1 = (mosaicLin - 1) * sizeSquareImage
+    # colP1 = (mosaicCol - 1) * sizeSquareImage + sizeSlide
+    # linP2 = mosaicLin * sizeSquareImage
+    # colP2 = mosaicCol * sizeSquareImage + sizeSlide
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
+
+    # draws grid into mosaic image
+    if croppingImageOfROI:
+        bgrBoxColor = [255, 0, 0]  # blue color
+    else:
+        bgrBoxColor = [0, 0, 255]  # red color
+    thickness = 1
+    mosaicImage = drawMosaicImage(mosaicImage,
+                                  mosaicLin, mosaicCol,
+                                  linP1, colP1, linP2, colP2,
+                                  bgrBoxColor,
+                                  thickness)
+
+
+# crops the image considering the down sliding
+def cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                         mosaicLin, mosaicCol, mosaicImage,
+                         croppingImageOfROI, croppingImageOfSegmentedImage):
+    # getting the image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # setting the name of cropped mosaic image
+    sufixName = '-slidDown'
+    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
+
+    # defining the two points of the cropped image
+    linP1, colP1, linP2, colP2 = getP1AndP2OfDownSlidingCrop(mosaicLin, mosaicCol, sizeSquareImage,
+                                                             imageWidth, imageHeight)
+
+    # # setting the slide size
+    # sizeSlide = int(sizeSquareImage / 2)
+    #
+    # # defining the two points of the cropped image
+    # linP1 = (mosaicLin - 1) * sizeSquareImage + sizeSlide
+    # colP1 = (mosaicCol - 1) * sizeSquareImage
+    # linP2 = mosaicLin * sizeSquareImage + sizeSlide
+    # colP2 = mosaicCol * sizeSquareImage
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
+
+    # draws grid into mosaic image
+    if croppingImageOfROI:
+        bgrBoxColor = [255, 0, 0]  # blue color
+    else:
+        bgrBoxColor = [0, 0, 255]  # red color
+    thickness = 1
+    mosaicImage = drawMosaicImage(mosaicImage,
+                                  mosaicLin, mosaicCol,
+                                  linP1, colP1, linP2, colP2,
+                                  bgrBoxColor,
+                                  thickness)
+
+
+# crops the sliding image
+def cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage,
+                               mosaicLin, mosaicCol, mosaicImage,
+                               croppingImageOfROI, croppingImageOfSegmentedImage):
+    # getting the image shape
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+
+    # setting the name of cropped mosaic image
+    sufixName = '-slidRightDown'
+    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
+    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
+
+    # defining the two points of the cropped image
+    linP1, colP1, linP2, colP2 = getP1AndP2OfRightDownSlidingCrop(mosaicLin, mosaicCol, sizeSquareImage,
+                                                                  imageWidth, imageHeight)
+
+    # # setting the slide size
+    # sizeSlide = int(sizeSquareImage / 2)
+    #
+    # # defining the two points of the cropped image
+    # linP1 = (mosaicLin - 1) * sizeSquareImage + sizeSlide
+    # colP1 = (mosaicCol - 1) * sizeSquareImage + sizeSlide
+    # linP2 = mosaicLin * sizeSquareImage + sizeSlide
+    # colP2 = mosaicCol * sizeSquareImage + sizeSlide
+
+    # cropping and saving bounding box in new image
+    croppedImage = inputImage[linP1:linP2, colP1:colP2]
+    croppedImageWidth = linP2 - linP1
+    croppedImageHeight = colP2 - colP1
+
+    # saving the cropped image
+    saveImage(croppedImagePathAndImageName, croppedImage)
+
+    # saving the cropped image details
+    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
+                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
+                                sufixName
+                                )
+
+    # draws grid into mosaic image
+    if croppingImageOfROI:
+        bgrBoxColor = [255, 0, 0]  # blue color
+    else:
+        bgrBoxColor = [0, 0, 255]  # red color
+    thickness = 1
+    mosaicImage = drawMosaicImage(mosaicImage,
+                                  mosaicLin, mosaicCol,
+                                  linP1, colP1, linP2, colP2,
+                                  bgrBoxColor,
+                                  thickness)
+
+
+# ###########################################
+# Methods of Level 4
+# ###########################################
+
+def getP1AndP2OfHorizontalVerticalCrop(mosaicLin, mosaicCol, sizeSquareImage, imageWidth, imageHeight):
+    # defining the two points of the cropped image
+    linP1 = (mosaicLin - 1) * sizeSquareImage
+    colP1 = (mosaicCol - 1) * sizeSquareImage
+    linP2 = mosaicLin * sizeSquareImage
+    colP2 = mosaicCol * sizeSquareImage
+
+    # checking the image boundaries
+    if colP2 > imageWidth:
+        colP2 = imageWidth
+        colP1 = colP2 - sizeSquareImage
+
+    if linP2 > imageHeight:
+        linP2 = imageHeight
+        linP1 = linP2 - sizeSquareImage
+
+    # returing the two points
+    return linP1, colP1, linP2, colP2
+
+
+def getP1AndP2OfRightSlidingCrop(mosaicLin, mosaicCol, sizeSquareImage, imageWidth, imageHeight):
     # setting the slide size
     sizeSlide = int(sizeSquareImage / 2)
 
@@ -191,32 +560,11 @@ def cropRightSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicP
     linP2 = mosaicLin * sizeSquareImage
     colP2 = mosaicCol * sizeSquareImage + sizeSlide
 
-    # cropping and saving bounding box in new image
-    croppedImage = inputImage[linP1:linP2, colP1:colP2]
-    croppedImageWidth = linP2 - linP1
-    croppedImageHeight = colP2 - colP1
-
-    # saving the cropped image
-    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
-
-    # saving the cropped image details
-    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
-                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
-                                sufixName
-                                )
+    # returing the two points
+    return linP1, colP1, linP2, colP2
 
 
-# crops the image considering the down sliding
-def cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
-                         mosaicCol):
-    # getting the image shape
-    imageHeight, imageWidth, imageChannel = inputImage.shape
-
-    # setting the name of cropped mosaic image
-    sufixName = '-slidDown'
-    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
-    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
-
+def getP1AndP2OfDownSlidingCrop(mosaicLin, mosaicCol, sizeSquareImage, imageWidth, imageHeight):
     # setting the slide size
     sizeSlide = int(sizeSquareImage / 2)
 
@@ -226,32 +574,11 @@ def cropDownSlidingImage(inputImage, inputImageName, outputCroppedImagesMosaicPa
     linP2 = mosaicLin * sizeSquareImage + sizeSlide
     colP2 = mosaicCol * sizeSquareImage
 
-    # cropping and saving bounding box in new image
-    croppedImage = inputImage[linP1:linP2, colP1:colP2]
-    croppedImageWidth = linP2 - linP1
-    croppedImageHeight = colP2 - colP1
-
-    # saving the cropped image
-    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
-
-    # saving the cropped image details
-    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
-                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
-                                sufixName
-                                )
+    # returing the two points
+    return linP1, colP1, linP2, colP2
 
 
-# crops the sliding image
-def cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMosaicPath, sizeSquareImage, mosaicLin,
-                               mosaicCol):
-    # getting the image shape
-    imageHeight, imageWidth, imageChannel = inputImage.shape
-
-    # setting the name of cropped mosaic image
-    sufixName = '-slidRightDown'
-    croppedImageName = getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName)
-    croppedImagePathAndImageName = outputCroppedImagesMosaicPath + croppedImageName
-
+def getP1AndP2OfRightDownSlidingCrop(mosaicLin, mosaicCol, sizeSquareImage, imageWidth, imageHeight):
     # setting the slide size
     sizeSlide = int(sizeSquareImage / 2)
 
@@ -261,24 +588,8 @@ def cropRightDownSlidingImages(inputImage, inputImageName, outputCroppedImagesMo
     linP2 = mosaicLin * sizeSquareImage + sizeSlide
     colP2 = mosaicCol * sizeSquareImage + sizeSlide
 
-    # cropping and saving bounding box in new image
-    croppedImage = inputImage[linP1:linP2, colP1:colP2]
-    croppedImageWidth = linP2 - linP1
-    croppedImageHeight = colP2 - colP1
-
-    # saving the cropped image
-    saveCroppedImage(croppedImagePathAndImageName, croppedImage)
-
-    # saving the cropped image details
-    saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, inputImageName, imageHeight, imageWidth,
-                                sizeSquareImage, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2,
-                                sufixName
-                                )
-
-
-# ###########################################
-# Methods of Level 4
-# ###########################################
+    # returing the two points
+    return linP1, colP1, linP2, colP2
 
 
 # define the cropped name
@@ -291,7 +602,7 @@ def getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName):
 
 
 # save the cropped image
-def saveCroppedImage(croppedImagePathAndImageName, croppedImage):
+def saveImage(croppedImagePathAndImageName, croppedImage):
     # croppedImageName = croppedImagePathAndImageName
     cv2.imwrite(croppedImagePathAndImageName + '.jpg', croppedImage)
     print(croppedImagePathAndImageName)
@@ -328,10 +639,102 @@ def saveCroppedImageDetailsFile(outputCroppedImagesMosaicPath, originalImageName
         json.dump(croppedImageDetails, json_file)
 
 
+def drawMosaicImage(image, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2, bgrBoxColor, thickness):
+    # Start coordinate, here (5, 5)
+    # represents the top left corner of rectangle
+    startPoint = (colP1, linP1)
+
+    # Ending coordinate, here (220, 220)
+    # represents the bottom right corner of rectangle
+    endPoint = (colP2, linP2)
+
+    # Using cv2.rectangle() method
+    # Draw a rectangle with blue line borders of thickness of 2 px
+    image = cv2.rectangle(image, startPoint, endPoint, bgrBoxColor, thickness)
+
+    # setting bounding box label with the class name and confidence
+    label = '(' + str(mosaicLin) + ',' + str(mosaicCol) + ')'
+    cv2.putText(image, label,
+                (colP1 + 32, linP1 + 32),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, bgrBoxColor, 2)
+
+    # returning the image with bounding box draw
+    return image
+
+
+# segment the image by morphological operations
+def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
+    height = 480
+    width = 640
+
+    # #################################################################
+    # Step 1: threshold image
+    # #################################################################
+
+    # convert to hsv
+    hsvImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2HSV)
+    # imageWindowName = inputImageName + '-hsvImage'
+    # showImageInWindow(hsvImage, imageWindowName, width, height, False)
+
+    # mask of green (36,25,25) ~ (86, 255,255)
+    # mask = cv2.inRange(hsvImage, (0, 100, 100), (220, 255, 255))
+    mask = cv2.inRange(hsvImage, (40, 40, 40), (70, 255, 255))
+    # imageWindowName = inputImageName + '-threshold'
+    # showImageInWindow(mask, imageWindowName, width, height, False)
+
+    # #################################################################
+    # Step 2: removes noise of the image
+    # #################################################################
+
+    # noise removal by opening
+    # openingKernel = np.ones((3, 3), np.uint8)
+    openingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, openingKernel, iterations=2)
+    # imageWindowName = inputImageName + '-opening'
+    # showImageInWindow(opening, imageWindowName, width, height, False)
+
+    # #################################################################
+    # Step 3: get sure foreground area of "opening image" by dilation
+    # #################################################################
+    dilatingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    foregroundImage = cv2.morphologyEx(opening, cv2.MORPH_DILATE, dilatingKernel, iterations=10)
+    # imageWindowName = inputImageName + '-foregroundImage-by-dilating-3x3'
+    # showImageInWindow(foregroundImage, imageWindowName, width, height, False)
+
+    # dilatingKernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    # foregroundImage = cv2.morphologyEx(foregroundImage, cv2.MORPH_DILATE, dilatingKernel, iterations=5)
+    # imageWindowName = inputImageName + '-foregroundImage-by-dilating-5x5'
+    # showImageInWindow(foregroundImage, imageWindowName, width, height, False)
+
+    # #################################################################
+    # Step 4: multiply the foreground image by input image
+    # #################################################################
+    imageHeight, imageWidth, imageChannel = inputImage.shape
+    resultImage = inputImage.copy()
+    resultImage[:, :] = [0, 0, 0]
+
+    # show just the foreground pixels
+    for lin in range(0, imageHeight):
+        for col in range(0, imageWidth):
+            if foregroundImage[lin, col] > 0:
+                resultImage[lin, col] = inputImage[lin, col]
+
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+
+    # saving the result image
+    resultImageName = outputImagesMosaicPath + inputImageName + '-just-leaf'
+    saveImage(resultImageName, resultImage)
+
+    # returning the result image
+    return resultImage
+
+
 # ###########################################
 # Main method
 # ###########################################
 if __name__ == '__main__':
+    IMAGE_MOSAIC_PATH = 'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/'
     INPUT_ORIGINAL_IMAGES_PATH = \
         'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/01. input original images/'
     OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = \
@@ -340,15 +743,17 @@ if __name__ == '__main__':
     print('Creates Images Mosaic')
     print('---------------------------------')
     print('')
-    print('Input images path    : ', INPUT_ORIGINAL_IMAGES_PATH)
-    print('Mosaic images path  : ', OUTPUT_CROPPED_IMAGES_MOSAIC_PATH)
+    print('Image Mosaic Path  : ', IMAGE_MOSAIC_PATH)
+    print('Input images path  : ', INPUT_ORIGINAL_IMAGES_PATH)
+    print('Mosaic images path : ', OUTPUT_CROPPED_IMAGES_MOSAIC_PATH)
     print('')
 
     # setting the size square image to crop with a fixed size (height and width) used in the YOLOv4
     sizeSquareImage = 128
 
     # processing the annotated images
-    processInputImages(INPUT_ORIGINAL_IMAGES_PATH, OUTPUT_CROPPED_IMAGES_MOSAIC_PATH, sizeSquareImage)
+    processInputImages(IMAGE_MOSAIC_PATH, INPUT_ORIGINAL_IMAGES_PATH, OUTPUT_CROPPED_IMAGES_MOSAIC_PATH,
+                       sizeSquareImage)
 
     # end of processing
     print('End of processing')
