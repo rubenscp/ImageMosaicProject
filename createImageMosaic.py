@@ -16,6 +16,12 @@ from shutil import copyfile
 from pandas import read_excel
 import numpy as np
 
+import skimage
+from skimage.util import img_as_float
+from skimage.segmentation import slic
+from skimage.util import img_as_ubyte, img_as_int
+from skimage import img_as_float
+
 # ###########################################
 # Constants
 # ###########################################
@@ -33,12 +39,17 @@ LINE_FEED = '\n'
 
 
 # # processing all images of the folder
-def processInputImages(imageMosaicPath, inputOriginalImagesPath, outputCroppedImagesMosaicPath, sizeSquareImage):
+def processInputImages(experimentRootPath,
+                       inputOriginalImagesPath,
+                       inputSegmentedOriginalImagesPath,
+                       inputRegionOfInterestPath,
+                       outputCroppedImagesMosaicPath,
+                       sizeSquareImage):
     # defining counters
     totalOfImages = 0
 
     # getting roi of images by Excel files in the version 2003 (xls)
-    imageMosaicPathAndROIFile = imageMosaicPath + 'ROI (Region Of Interest) of mosaic.xls'
+    imageMosaicPathAndROIFile = inputRegionOfInterestPath + 'ROI (Region Of Interest) of mosaic.xls'
     roi = getROI(imageMosaicPathAndROIFile)
 
     # xxx1 = isROI(roi, 1, 1)
@@ -76,7 +87,11 @@ def processInputImages(imageMosaicPath, inputOriginalImagesPath, outputCroppedIm
                     imageWidth))
 
         # segments the original image to define the ROI (Region Of Interest)
-        segmentedInputImage = segmentByMorphological(inputImage, inputImageName, outputCroppedImagesMosaicPath)
+        # segmentedInputImage = segmentByMorphological(inputImage, inputImageName, outputCroppedImagesMosaicPath)
+        # segmentedInputImage = segmentByDibio(inputOriginalImagesPath)
+
+        segmentedInputImage = []
+        # segmentedInputImage = segmentBySuperPixel(inputImage, inputImageName, outputCroppedImagesMosaicPath)
 
         # create the mosaic of images
         cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath, roi,
@@ -116,6 +131,9 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
     # get image shape
     imageHeight, imageWidth, imageChannel = inputImage.shape
 
+    # defining the folder path to put the images mosaic
+    MOSAIC_PATH = 'mosaic\\'
+
     # calculating number of mosaic
     numberOfMosaicLines = math.ceil(imageHeight / sizeSquareImage)
     numberOfMosaicColuns = math.ceil(imageWidth / sizeSquareImage)
@@ -141,7 +159,7 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
                 # if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
                 #     croppingImageOfROI = True
             else:
-                percentageBackgroundDesired = 10
+                percentageBackgroundDesired = 0
                 if isLeaf(segmentedInputImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
                     croppingImageOfSegmentedImage = True
 
@@ -153,7 +171,7 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
                                             croppingImageOfROI, croppingImageOfSegmentedImage)
 
     # saving the mosaic image
-    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-hv'
+    mosaicImageName = outputCroppedImagesMosaicPath + MOSAIC_PATH + inputImageName + '-mosaic-hv'
     saveImage(mosaicImageName, mosaicImage)
 
     # cropping images in the right sliding
@@ -190,7 +208,7 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
                                       croppingImageOfROI, croppingImageOfSegmentedImage)
 
     # saving the mosaic image
-    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-rightSliding'
+    mosaicImageName = outputCroppedImagesMosaicPath + MOSAIC_PATH + inputImageName + '-mosaic-rightSliding'
     saveImage(mosaicImageName, mosaicImage)
 
     # cropping images in the down sliding
@@ -226,7 +244,7 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
                                      croppingImageOfROI, croppingImageOfSegmentedImage)
 
     # saving the mosaic image
-    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-downSliding'
+    mosaicImageName = outputCroppedImagesMosaicPath + MOSAIC_PATH + inputImageName + '-mosaic-downSliding'
     saveImage(mosaicImageName, mosaicImage)
 
     # cropping images in the right and down sliding
@@ -263,7 +281,7 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
                                            croppingImageOfROI, croppingImageOfSegmentedImage)
 
     # saving the mosaic image
-    mosaicImageName = outputCroppedImagesMosaicPath + inputImageName + '-mosaic-rightDownSliding'
+    mosaicImageName = outputCroppedImagesMosaicPath + MOSAIC_PATH + inputImageName + '-mosaic-rightDownSliding'
     saveImage(mosaicImageName, mosaicImage)
 
 
@@ -273,6 +291,7 @@ def cropImagesMosaic(inputImage, inputImageName, sizeSquareImage, outputCroppedI
 
 # check if element belongs to ROI or not
 def isROI(roi, mosaicLin, mosaicCol):
+    # return False
     lines, columns = roi.shape
     if mosaicLin >= lines or mosaicCol >= columns:
         return False
@@ -283,6 +302,9 @@ def isROI(roi, mosaicLin, mosaicCol):
 
 # check if cropped image is leaf or background
 def isLeaf(segmentedImage, linP1, colP1, linP2, colP2, percentageBackgroundDesired):
+    if len(segmentedImage) == 0:
+        return False
+
     # cropping image
     croppedImage = segmentedImage[linP1:linP2, colP1:colP2]
 
@@ -663,6 +685,12 @@ def drawMosaicImage(image, mosaicLin, mosaicCol, linP1, colP1, linP2, colP2, bgr
 
 
 # segment the image by morphological operations
+def segmentByDibio(inputOriginalImagesPath):
+    segmentedImage = cv2.imread(inputOriginalImagesPath + 'segmentedImage/P1040801-slic0.jpg')
+    return segmentedImage
+
+
+# segment the image by morphological operations
 def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
     height = 480
     width = 640
@@ -730,29 +758,60 @@ def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
     return resultImage
 
 
+def segmentBySuperPixel(inputImage, inputImageName, outputImagesMosaicPath):
+    float_image = img_as_float(inputImage)
+    segments_slic = slic(float_image, n_segments=3, compactness=10)
+
+    for index in np.unique(segments_slic):
+        segmentedImage = float_image
+        segmentedImage[segments_slic == index] = 0.0
+        # cv2.imwrite("P1040801-slic{}.jpg".format(index), img_as_ubyte(segmentedImage))
+
+    # saving the result image
+    resultImageName = outputImagesMosaicPath + inputImageName + '-just-leaf'
+    saveImage(resultImageName, segmentedImage)
+
+    # returning the segmented image
+    return segmentedImage
+
+
 # ###########################################
 # Main method
 # ###########################################
 if __name__ == '__main__':
-    IMAGE_MOSAIC_PATH = 'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/'
-    INPUT_ORIGINAL_IMAGES_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/01. input original images/'
-    OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/02. output cropped images mosaic/'
+    # IMAGE_MOSAIC_PATH = 'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/'
+    # INPUT_ORIGINAL_IMAGES_PATH = \
+    #     'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/01. input original images/'
+    # OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = \
+    #     'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/02. output cropped images mosaic/'
+
+    # IMAGE_MOSAIC_PATH = 'E:/desenvolvimento/projetos/DoctoralProjects/WhiteFlyExperiment/'
+    EXPERIMENT_ROOT_PATH = 'E:/desenvolvimento/projetos/DoctoralProjects/Whitefly_Biology_Group_3.1/'
+    EXPERIMENT_IDENTIFICATION_PATH = 'B3R1/'
+    INPUT_ORIGINAL_IMAGES_PATH = EXPERIMENT_ROOT_PATH + EXPERIMENT_IDENTIFICATION_PATH + '02.01 - Detection - Original Images/'
+    INPUT_SEGMENTED_ORIGINAL_IMAGES_PATH = EXPERIMENT_ROOT_PATH + EXPERIMENT_IDENTIFICATION_PATH + '02.02 - Detection - Segmented Original Images/'
+    INPUT_REGION_OF_INTEREST_PATH = EXPERIMENT_ROOT_PATH + EXPERIMENT_IDENTIFICATION_PATH + '02.03 - Detection - Region Of Interest (ROI)/'
+    OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = EXPERIMENT_ROOT_PATH + EXPERIMENT_IDENTIFICATION_PATH + '02.04 - Detection - Cropped Images of the Mosaic/'
 
     print('Creates Images Mosaic')
     print('---------------------------------')
     print('')
-    print('Image Mosaic Path  : ', IMAGE_MOSAIC_PATH)
-    print('Input images path  : ', INPUT_ORIGINAL_IMAGES_PATH)
-    print('Mosaic images path : ', OUTPUT_CROPPED_IMAGES_MOSAIC_PATH)
+    print('Experiment root path         : ', EXPERIMENT_ROOT_PATH)
+    print('Input images path            : ', INPUT_ORIGINAL_IMAGES_PATH)
+    print('Input segmented images path  : ', INPUT_SEGMENTED_ORIGINAL_IMAGES_PATH)
+    print('Input Region Of Interest     : ', INPUT_REGION_OF_INTEREST_PATH)
+    print('Mosaic images path           : ', OUTPUT_CROPPED_IMAGES_MOSAIC_PATH)
     print('')
 
     # setting the size square image to crop with a fixed size (height and width) used in the YOLOv4
     sizeSquareImage = 128
 
     # processing the annotated images
-    processInputImages(IMAGE_MOSAIC_PATH, INPUT_ORIGINAL_IMAGES_PATH, OUTPUT_CROPPED_IMAGES_MOSAIC_PATH,
+    processInputImages(EXPERIMENT_ROOT_PATH,
+                       INPUT_ORIGINAL_IMAGES_PATH,
+                       INPUT_SEGMENTED_ORIGINAL_IMAGES_PATH,
+                       INPUT_REGION_OF_INTEREST_PATH,
+                       OUTPUT_CROPPED_IMAGES_MOSAIC_PATH,
                        sizeSquareImage)
 
     # end of processing

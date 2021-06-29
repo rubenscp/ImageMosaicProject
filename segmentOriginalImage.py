@@ -8,12 +8,17 @@ Version: 1.0.0
 
 # Importing needed libraries
 import os
-# import math
 import json
 import cv2
 import cv2.cv2 as cv
 # from shutil import copyfile
 import numpy as np
+
+import skimage
+from skimage.util import img_as_float
+from skimage.segmentation import slic
+from skimage.util import img_as_ubyte, img_as_int
+from skimage import img_as_float
 
 # ###########################################
 # Constants
@@ -85,7 +90,7 @@ def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, s
         # segmentByWatershedAdjusted(inputImage, inputImageName, outputCroppedImagesMosaicPath)
 
         # segments the image
-        segmentByMorphological(inputImage, inputImageName, outputCroppedImagesMosaicPath)
+        # segmentByMorphological(inputImage, inputImageName, outputCroppedImagesMosaicPath)
 
         # segments the image
         # segementByConvexHull(inputImage, inputImageName, sizeSquareImage, outputCroppedImagesMosaicPath)
@@ -98,6 +103,9 @@ def processInputImages(inputOriginalImagesPath, outputCroppedImagesMosaicPath, s
 
         # segments the image
         # imageResult = segmentByGreenColorThresholding(inputImage, inputImageName, outputCroppedImagesMosaicPath)
+
+        # segments the image
+        segmentationBySuperPixel(inputImage, inputImageName, outputCroppedImagesMosaicPath)
 
         x = 0
 
@@ -471,7 +479,7 @@ def segmentByMorphological(inputImage, inputImageName, outputImagesMosaicPath):
 
     # saving the result image
     resultImageName = outputImagesMosaicPath + inputImageName + '-just-leaf'
-    saveResultImage(resultImageName, resultImage)
+    saveImage(resultImageName, resultImage)
 
 
 # https://circuitdigest.com/tutorial/image-segmentation-using-opencv
@@ -596,6 +604,42 @@ def segmentByGreenColorThresholding(inputImage, inputImageName, outputCroppedIma
     return green
 
 
+def segmentationBySuperPixel(inputImage, inputImageName, outputImagesMosaicPath):
+    float_image = img_as_float(inputImage)
+    segments_slic = slic(float_image, n_segments=3, compactness=10)
+
+    for index in np.unique(segments_slic):
+        segmentedImage = float_image
+        segmentedImage[segments_slic == index] = 0.0
+        resultImageName = outputImagesMosaicPath + inputImageName + '-slic' + str(index)
+        saveImage(resultImageName, img_as_ubyte(segmentedImage))
+        # cv2.imwrite("P1040801-slic{}.jpg".format(index), img_as_ubyte(segmentedImage))
+
+    # saving the result image
+    # resultImageName = outputImagesMosaicPath + inputImageName + '-just-leaf'
+    # saveImage(resultImageName, segmentedImage)
+
+    # returning the segmented image
+    return segmentedImage
+
+
+# def segmentBySuperPixel2222222(inputImage, inputImageName, outputImagesMosaicPath):
+#     float_image = img_as_float(inputImage)
+#     segments_slic = slic(float_image, n_segments=3, compactness=10)
+#
+#     for index in np.unique(segments_slic):
+#         segmentedImage = float_image
+#         segmentedImage[segments_slic == index] = 0.0
+#         # cv2.imwrite("P1040801-slic{}.jpg".format(index), img_as_ubyte(segmentedImage))
+#
+#     # saving the result image
+#     # resultImageName = outputImagesMosaicPath + inputImageName + '-just-leaf'
+#     # saveImage(resultImageName, segmentedImage)
+#
+#     # returning the segmented image
+#     return segmentedImage
+
+
 # ###########################################
 # Methods of Level 3
 # ###########################################
@@ -628,7 +672,7 @@ def getCroppedImageName(inputImageName, mosaicLin, mosaicCol, sufixName):
 
 
 # save the image
-def saveResultImage(fullPathAndImageName, image):
+def saveImage(fullPathAndImageName, image):
     # adjusting the file name
     fullPathAndImageName += '.jpg'
 

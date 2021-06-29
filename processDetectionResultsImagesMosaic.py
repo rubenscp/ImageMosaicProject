@@ -268,7 +268,8 @@ def getDetectedObjectsList(detectionLogFileName, imageName, confidenceThreshold)
 
         # get fields of bounding box
         className = values[0].replace(':', '')
-        className = className[2:]
+        # the below line was commented because the className is already correct.
+        # className = className[2:]
         confidence = int(values[1].replace('%', ''))
         linP1 = int(values[5])
         colP1 = int(values[3])
@@ -320,7 +321,7 @@ def getCroppedImageDetails(outputCroppedImagesMosaicPath, detectedCroppedImageNa
     linP2 = int(imageDetails['linP2'])
     colP2 = int(imageDetails['colP2'])
 
-    # creating a new cropped image detials instance
+    # creating a new cropped image details instance
     croppedImageDetails = CroppedImageDetails(
         croppedImagePath,
         originalImageName,
@@ -1117,14 +1118,20 @@ def removeFile(fullPathAndFileName):
 # Main method
 # ###########################################
 if __name__ == '__main__':
-    INPUT_ORIGINAL_IMAGES_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/01. input original images/'
-    OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/02. output cropped images mosaic/'
-    INPUT_DETECTED_CROPPED_IMAGES_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/03. input detected cropped images/'
-    OUTPUT_MERGED_IMAGES_PATH = \
-        'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/04. output merged images/'
+    # INPUT_ORIGINAL_IMAGES_PATH = \
+    #     'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/01. input original images/'
+    # OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = \
+    #     'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/02. output cropped images mosaic/'
+    # INPUT_DETECTED_CROPPED_IMAGES_PATH = \
+    #     'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/03. input detected cropped images/'
+    # OUTPUT_MERGED_IMAGES_PATH = \
+    #     'E:/desenvolvimento/projetos/DoctoralProjects/ImageMosaicProjectImages/04. output merged images/'
+
+    EXPERIMENT_ROOT_PATH = 'E:/desenvolvimento/projetos/DoctoralProjects/WhiteFlyExperiment/'
+    INPUT_ORIGINAL_IMAGES_PATH = EXPERIMENT_ROOT_PATH + '02.01 - Detection - Original Images/'
+    OUTPUT_CROPPED_IMAGES_MOSAIC_PATH = EXPERIMENT_ROOT_PATH + '02.04 - Detection - Cropped Images of the Mosaic/'
+    INPUT_DETECTED_CROPPED_IMAGES_PATH = EXPERIMENT_ROOT_PATH + '02.06 - Detection - YOLO V4 - Results Images/'
+    OUTPUT_MERGED_IMAGES_PATH = EXPERIMENT_ROOT_PATH + '02.07 - Detection - Final Results/'
 
     # setting the size square image to crop with a fixed size (height and width) used in the YOLOv4
     sizeSquareImage = 128
